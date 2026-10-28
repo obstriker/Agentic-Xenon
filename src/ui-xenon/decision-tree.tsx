@@ -46,6 +46,8 @@ export type DecisionTreeProps = {
   title?: string;
   /** Called once an option (and its follow-up answer, if it has one) is picked */
   onResolve?: (answer: DecisionAnswer) => void;
+  /** Smaller type and columns for a narrow panel */
+  compact?: boolean;
   className?: string;
 };
 
@@ -62,7 +64,7 @@ const rounded = (x1: number, y1: number, x2: number, y2: number) => {
   return `M${x1} ${y1}H${mid - r}Q${mid} ${y1} ${mid} ${y1 + s * r}V${y2 - s * r}Q${mid} ${y2} ${mid + r} ${y2}H${x2}`;
 };
 
-export function DecisionTree({ decisions, title = "Decisions", onResolve, className }: DecisionTreeProps) {
+export function DecisionTree({ decisions, title = "Decisions", onResolve, compact, className }: DecisionTreeProps) {
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<Record<string, { option: string; choice?: string }>>({});
   const [option, setOption] = useState<string | null>(null);
@@ -190,7 +192,7 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, classN
 
   if (!decision) return null;
   return (
-    <div ref={root} className={`xdt${className ? ` ${className}` : ""}`}>
+    <div ref={root} className={`xdt${compact ? " xdt-compact" : ""}${className ? ` ${className}` : ""}`}>
       <style>{CSS}</style>
       <header className="xdt-head">
         <span className="xdt-title">
@@ -203,6 +205,7 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, classN
           <b>{title}</b>
           <span>{waiting ? `${waiting} waiting for you` : "All decided"}</span>
         </span>
+        {decisions.length > 1 && (
         <span className="xdt-pager">
           <span className="xdt-dots" aria-hidden="true">
             {decisions.map((d, i) => (
@@ -211,6 +214,7 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, classN
           </span>
           {index + 1} of {decisions.length}
         </span>
+        )}
       </header>
 
       <div className="xdt-body" ref={body} key={decision.id}>
@@ -456,5 +460,23 @@ const CSS = `
 .xdt-done i{margin:0 2px}
 .xdt-foot{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:21px}
 .xdt-foot kbd{font-size:17px;height:28px;min-width:30px;border-radius:7px}
+.xdt-compact{--s:.62;gap:18px;padding:30px 28px 22px;border-radius:18px;font-size:12px}
+.xdt-compact .xdt-title b{font-size:17px}.xdt-compact .xdt-title span{font-size:14px}.xdt-compact .xdt-title svg{width:20px;height:20px}
+.xdt-compact .xdt-pager{font-size:14px}
+.xdt-compact .xdt-body{grid-template-columns:250px minmax(210px,275px) minmax(0,1fr);row-gap:16px;margin-top:6px}
+.xdt-compact .xdt-card{margin-right:34px;padding:20px;gap:12px;border-radius:14px}
+.xdt-compact .xdt-risk{top:-36px;font-size:12px;padding:3px 10px}
+.xdt-compact .xdt-who{gap:10px}.xdt-compact .xdt-who b,.xdt-compact .xdt-who span{font-size:14px}
+.xdt-compact .xdt-card h3{font-size:16px;line-height:1.5}.xdt-compact .xdt-card p{font-size:13px;line-height:1.5}
+.xdt-compact .xdt-card .xdt-tile{width:38px!important;height:38px!important}
+.xdt-compact .xdt-opt{margin-right:30px;padding:10px 12px;gap:8px;border-radius:11px}
+.xdt-compact .xdt-opt kbd{font-size:13px;height:24px;min-width:24px}.xdt-compact .xdt-opt .xdt-tile{width:26px;height:26px}
+.xdt-compact .xdt-optText b{font-size:16px}.xdt-compact .xdt-optText em{font-size:13px}
+.xdt-compact .xdt-q{padding:8px 14px;font-size:14px;border-radius:11px}
+.xdt-compact .xdt-choices{padding-left:28px;gap:8px}
+.xdt-compact .xdt-choice{padding:10px 14px;border-radius:11px}.xdt-compact .xdt-choice[data-plain=true]{padding:10px 14px}
+.xdt-compact .xdt-ctop b{font-size:14px}.xdt-compact .xdt-ctop em{font-size:12px}.xdt-compact .xdt-cbot,.xdt-compact .xdt-cbot mark{font-size:13px}
+.xdt-compact .xdt-done{font-size:13px;padding:5px 11px;margin-left:22px}.xdt-compact .xdt-done svg{width:13px;height:13px}
+.xdt-compact .xdt-foot{font-size:13px}.xdt-compact .xdt-foot kbd{font-size:11px;height:20px;min-width:20px}
 @media (prefers-reduced-motion:reduce){.xdt *{animation:none!important;transition:none!important}}
 `;

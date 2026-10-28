@@ -1,3 +1,5 @@
+import type { Decision } from "./ui-xenon/decision-tree";
+import { decisionTrees } from "./views/needs-trees";
 import type { LedgerChange } from "./ui-xenon/agent-ledger";
 
 export type AgentStatus = "working" | "waiting" | "done";
@@ -94,7 +96,8 @@ export type Approval = { risk: "low" | "medium" | "high"; preview: { label: stri
 
 export type Request =
   | { name: string; agent: string; question: string; details: string; type: "choice"; options: string[]; approval?: Approval }
-  | { name: string; agent: string; question: string; details: string; type: "text" };
+  | { name: string; agent: string; question: string; details: string; type: "text" }
+  | { name: string; agent: string; question: string; details: string; type: "tree"; tree: Decision };
 
 export const requests: Request[] = [
   {
@@ -127,6 +130,22 @@ export const requests: Request[] = [
     question: "Which geographic market should I prioritize?",
     details: "You can write a specific region or customer segment. The agent will apply it to the remaining research.",
     type: "text",
+  },
+  {
+    name: "Incident response",
+    agent: "Incident agent",
+    question: decisionTrees[0].question,
+    details: decisionTrees[0].details ?? "",
+    type: "tree",
+    tree: decisionTrees[0],
+  },
+  {
+    name: "Renewal offer",
+    agent: "Sales agent",
+    question: decisionTrees[1].question,
+    details: decisionTrees[1].details ?? "",
+    type: "tree",
+    tree: decisionTrees[1],
   },
 ];
 

@@ -211,3 +211,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+.review.tree { padding: 0; background: #1d1d20; }
+.review.tree .xdt { flex: 1; min-height: 0; overflow: auto; border: 0; border-radius: 0; }
+.review.tree footer { padding: 0 30px 24px; }
+.review.tree > .eyebrow, .review.tree > h2, .review.tree > .recorded { margin: 0 30px; }
+.review.tree > .eyebrow { margin-top: 26px; }
+.review.tree > footer { margin-top: 0; }

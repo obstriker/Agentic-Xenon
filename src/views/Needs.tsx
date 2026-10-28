@@ -1,4 +1,5 @@
 import { ApprovalCard } from "../ui-xenon/approval-card";
+import { DecisionTree } from "../ui-xenon/decision-tree";
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { requests, type Request } from "../data";
 import { Button } from "../ui/button";
@@ -105,6 +106,40 @@ function Review({ request: r, response, onRespond, onChange, onDefer, toast }: R
               Decide later
             </Button>
           </footer>
+        )}
+      </div>
+    );
+  }
+
+  if (r.type === "tree") {
+    return (
+      <div className="panel review tree">
+        {response ? (
+          <>
+            <span className="eyebrow">AGENT REQUEST · {r.agent.toUpperCase()}</span>
+            <h2>{r.question}</h2>
+            <div className="recorded" role="status">
+              <span aria-hidden="true">✓</span> Response recorded: {response}
+            </div>
+            <footer>
+              <Button variant="secondary" size="lg" onClick={onChange}>
+                Change response
+              </Button>
+            </footer>
+          </>
+        ) : (
+          <>
+            <DecisionTree compact decisions={[r.tree]} onResolve={(a) => {
+                const reply = a.choice ? `${a.option.label} → ${a.choice.title}` : a.option.label;
+                // let the tree show "Approved · running" before the panel switches to the recorded line
+                setTimeout(() => onRespond(reply), 1100);
+              }} />
+            <footer>
+              <Button variant="secondary" size="lg" onClick={onDefer}>
+                Decide later
+              </Button>
+            </footer>
+          </>
         )}
       </div>
     );
