@@ -69,6 +69,8 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
   const [picked, setPicked] = useState<Record<string, { option: string; choice?: string }>>({});
   const [option, setOption] = useState<string | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
+  // The agent's own path through the tree, lit end to end when its root card is clicked
+  const [trail, setTrail] = useState(false);
   const [paths, setPaths] = useState<Path[]>([]);
   const root = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
@@ -78,6 +80,14 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
   const decision = decisions[index];
   const chosen = decision && picked[decision.id];
   const open = decision?.options.find((o) => o.id === option);
+  const pickOpt = decision?.options.find((o) => o.agentPick && o.followUp);
+  const pickChoice = pickOpt?.followUp && (pickOpt.followUp.choices.find((c) => c.agentPick) ?? pickOpt.followUp.choices[0]);
+  const trailOn = trail && !!pickOpt && !open && !chosen;
+  const clear = () => {
+    setOption(null);
+    setFocus(null);
+    setTrail(false);
+  };
   const waiting = decisions.filter((d) => !picked[d.id]).length;
 
   const go = useCallback(
@@ -85,6 +95,7 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
       setIndex(Math.min(decisions.length - 1, Math.max(0, to)));
       setOption(null);
       setFocus(null);
+      setTrail(false);
     },
     [decisions.length],
   );
@@ -105,6 +116,7 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
       const choices = o.followUp?.choices ?? [];
       if (!choices.length) return resolve(o);
       if (choices.length === 1 && !o.followUp?.question) return resolve(o, choices[0]);
+      setTrail(false);
       setOption(o.id);
       setFocus((choices.find((c) => c.agentPick) ?? choices[0]).id);
     },
@@ -112,18 +124,19 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
   );
 
   // Keys work only while the widget is on screen and nobody is typing
-  const latest = useRef({ decision, open, pickOption, resolve, go, index, chosen });
-  latest.current = { decision, open, pickOption, resolve, go, index, chosen };
+  const latest = useRef({ decision, open, pickOption, resolve, go, index, chosen, trailOn, pickOpt, pickChoice });
+  latest.current = { decision, open, pickOption, resolve, go, index, chosen, trailOn, pickOpt, pickChoice };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = root.current;
       if (!el || el.offsetParent === null || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
-      const { decision, open, pickOption, resolve, go, index, chosen } = latest.current;
+      const { decision, open, pickOption, resolve, go, index, chosen, trailOn, pickOpt, pickChoice } = latest.current;
       if (e.key === "ArrowRight") return go(index + 1);
-      if (e.key === "ArrowLeft") return open ? setOption(null) : go(index - 1);
-      if (e.key === "Escape" && open) return setOption(null);
+      if (e.key === "ArrowLeft") return open || trailOn ? (setOption(null), setTrail(false)) : go(index - 1);
+      if (e.key === "Escape" && (open || trailOn)) return (setOption(null), setTrail(false));
+      if (e.key === "Enter" && trailOn && pickOpt) return resolve(pickOpt, pickChoice);
       if (chosen || !/^[1-9]$/.test(e.key)) return;
       const n = Number(e.key) - 1;
       if (open) {
@@ -150,7 +163,8 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
     decision.options.forEach((o) => {
       const p = box(`opt:${o.id}`);
       if (!p) return;
-      const on = open ? open.id === o.id : chosen?.option === o.id;
+      const lead = trailOn && pickOpt?.id === o.id;
+      const on = open ? open.id === o.id : chosen ? chosen.option === o.id : lead;
       if ((open || chosen) && !on) return;
       out.push({ d: rounded(card.r, card.m, p.l, p.m), on });
       const f = o.followUp;
@@ -161,14 +175,15 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
       out.push({ d: rounded(p.r, p.m, first.l, first.m), on });
       if (!q) return;
       const spine = q.l + 22;
-      const ends = f.choices.map((c) => box(`c:${o.id}:${c.id}`)).filter((x): x is NonNullable<typeof x> => !!x);
+      const ends = f.choices.map((c) => ({ id: c.id, ...box(`c:${o.id}:${c.id}`)! })).filter((x) => x.m !== undefined);
       if (!ends.length) return;
       const last = ends[ends.length - 1];
-      out.push({ d: `M${spine} ${q.b}V${last.m - 10}Q${spine} ${last.m} ${spine + 10} ${last.m}H${last.l}`, on });
-      ends.slice(0, -1).forEach((c) => out.push({ d: `M${spine} ${c.m - 10}Q${spine} ${c.m} ${spine + 10} ${c.m}H${c.l}`, on }));
+      const lit = (id: string) => on && (!lead || id === pickChoice?.id);
+      out.push({ d: `M${spine} ${q.b}V${last.m - 10}Q${spine} ${last.m} ${spine + 10} ${last.m}H${last.l}`, on: lit(last.id) || (on && lead) });
+      ends.slice(0, -1).forEach((c) => out.push({ d: `M${spine} ${c.m - 10}Q${spine} ${c.m} ${spine + 10} ${c.m}H${c.l}`, on: lit(c.id) }));
     });
     setPaths(out);
-  }, [decision, open, chosen]);
+  }, [decision, open, chosen, trailOn, pickOpt, pickChoice]);
 
   useLayoutEffect(() => {
     measure();
@@ -182,17 +197,25 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
   const footer = useMemo(() => {
     if (!decision) return null;
     if (chosen) return <>Decided</>;
+    if (trailOn) return <>Agent's path <i>·</i> accept <kbd>↵</kbd> <i>·</i> click away to reset</>;
     if (open) return <>Then <kbd>1</kbd> – <kbd>{open.followUp!.choices.length}</kbd></>;
     return (
       <>
         Pick a branch <kbd>1</kbd> – <kbd>{decision.options.length}</kbd> <i>·</i> next <kbd>→</kbd>
       </>
     );
-  }, [decision, open, chosen]);
+  }, [decision, open, chosen, trailOn]);
 
   if (!decision) return null;
   return (
-    <div ref={root} className={`xdt${compact ? " xdt-compact" : ""}${className ? ` ${className}` : ""}`}>
+    <div
+      ref={root}
+      className={`xdt${compact ? " xdt-compact" : ""}${className ? ` ${className}` : ""}`}
+      onClick={(e) => {
+        // Clicking anywhere that is not a branch, an answer or the root card puts every branch back
+        if (!(e.target as HTMLElement).closest(".xdt-opt,.xdt-choice,.xdt-card")) clear();
+      }}
+    >
       <style>{CSS}</style>
       <header className="xdt-head">
         <span className="xdt-title">
@@ -224,7 +247,26 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
           ))}
         </svg>
 
-        <section className="xdt-card" ref={ref("card")}>
+        <section
+          className="xdt-card"
+          ref={ref("card")}
+          data-trail={trailOn}
+          role="button"
+          tabIndex={0}
+          aria-pressed={trailOn}
+          aria-label="Show the agent's path"
+          onClick={() => {
+            if (chosen || !pickOpt) return;
+            setOption(null);
+            setTrail((t) => !t);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === " ") {
+              e.preventDefault();
+              e.currentTarget.click();
+            }
+          }}
+        >
           <span className="xdt-risk" data-risk={decision.risk}>
             {RISK_LABEL[decision.risk]}
           </span>
@@ -240,16 +282,18 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
         </section>
 
         {decision.options.map((o, i) => {
+          const lead = trailOn && pickOpt?.id === o.id;
           const on = open?.id === o.id || chosen?.option === o.id;
           const hidden = (!!open || !!chosen) && !on;
+          const faded = trailOn && !lead;
           const f = o.followUp;
           return (
-            <div className="xdt-row" key={o.id} data-hidden={hidden}>
+            <div className="xdt-row" key={o.id} data-hidden={hidden} data-faded={faded}>
               <button
                 type="button"
                 ref={ref(`opt:${o.id}`)}
                 className="xdt-opt"
-                data-on={on}
+                data-on={on || lead}
                 data-other={o.other}
                 disabled={!!chosen || hidden}
                 onClick={() => pickOption(o)}
@@ -271,8 +315,8 @@ export function DecisionTree({ decisions, title = "Decisions", onResolve, compac
                 <div className="xdt-choices" data-spine={!!f?.question}>
                   {f?.choices.map((c, ci) => {
                     const sel = chosen?.option === o.id && chosen.choice === c.id;
-                    const lit = on && !chosen && (focus ? focus === c.id : c.agentPick);
-                    const dim = (on && !chosen && !lit) || (!!chosen && on && !sel);
+                    const lit = (on && !chosen && (focus ? focus === c.id : c.agentPick)) || (lead && c.id === pickChoice?.id);
+                    const dim = (on && !chosen && !lit) || (!!chosen && on && !sel) || (lead && !lit);
                     return (
                       <div key={c.id} className="xdt-choiceWrap">
                         <button
@@ -425,6 +469,11 @@ const CSS = `
 .xdt-row{display:contents}
 .xdt-row>*{position:relative;z-index:1;transition:opacity .3s}
 .xdt-row[data-hidden=true]>*{opacity:0;pointer-events:none}
+.xdt-row[data-faded=true]>*{opacity:.3}
+.xdt-card{cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.xdt-card:hover{border-color:var(--line2)}
+.xdt-card[data-trail=true]{border-color:#4358c4;box-shadow:0 8px 50px -8px rgba(80,100,240,.45)}
+.xdt-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .xdt-opt{grid-column:2;display:flex;align-items:center;gap:12px;margin-right:48px;padding:16px 22px;border-radius:14px;background:#1c1c1f;border:1px solid var(--line);font-size:26px;line-height:1.3;transition:border-color .2s,box-shadow .2s,background .2s}
 .xdt-opt:hover:not(:disabled){border-color:var(--line2);background:#212125}
 .xdt-opt[data-on=true]{border-color:#4358c4;box-shadow:0 8px 50px -8px rgba(80,100,240,.55);background:#1d1f2b}
