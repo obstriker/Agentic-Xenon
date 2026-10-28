@@ -66,13 +66,178 @@ export interface AgentTreeProps {
 const STATUS_LABEL: Record<TreeStatus, string> = {
   queued: "Queued",
   running: "Running",
-  waiting: "Needs a decision",
+  waiting: "Needs you",
   paused: "Paused",
-  done: "Complete",
+  done: "Done",
   failed: "Failed",
 };
 
 const defaultFormatCost = (n: number) => `$${n.toFixed(2)}`;
+
+/* Small glyphs: the model's mark on a card, and a tile for each tool. Stand-ins drawn here, not the vendors' logos. */
+const svg = { viewBox: "0 0 24 24", "aria-hidden": true, focusable: false } as const;
+
+/** The mark of the model behind an agent, or its first letter */
+function ModelMark({ model, name }: { model?: string; name: string }) {
+  const m = (model ?? "").toLowerCase();
+  if (/opus|sonnet|haiku|claude/.test(m))
+    return (
+      <svg {...svg} width="22" height="22" stroke="#e58f78" strokeWidth="1.7" strokeLinecap="round" fill="none">
+        {Array.from({ length: 12 }, (_, i) => (
+          <path key={i} d="M12 3.5v5" transform={`rotate(${i * 30} 12 12)`} />
+        ))}
+      </svg>
+    );
+  if (/gpt|openai|codex/.test(m))
+    return (
+      <svg {...svg} width="22" height="22" stroke="#f0f0f2" strokeWidth="1.5" strokeLinejoin="round" fill="none">
+        {[0, 60, 120].map((r) => (
+          <rect key={r} x="6.5" y="3.2" width="11" height="17.6" rx="5.5" transform={`rotate(${r} 12 12)`} />
+        ))}
+      </svg>
+    );
+  if (/gemini/.test(m))
+    return (
+      <svg {...svg} width="22" height="22" fill="#5d7cf5">
+        <path d="M12 2c.7 5.4 4.600 9.300 10 10-5.400.7-9.300 4.600-10 10-.7-5.400-4.600-9.300-10-10 5.400-.7 9.300-4.600 10-10z" />
+      </svg>
+    );
+  return <span className="xn-at__letter">{name.slice(0, 1).toUpperCase()}</span>;
+}
+
+/** A tile for a tool, chosen by what its name says it is */
+function ToolGlyph({ name }: { name: string }) {
+  const n = name.toLowerCase();
+  const line = { ...svg, width: 14, height: 14, fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  let icon;
+  if (/github|git\b|repo/.test(n))
+    icon = (
+      <svg {...svg} width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+      </svg>
+    );
+  else if (/slack/.test(n))
+    icon = (
+      <svg {...svg} width="15" height="15">
+        <rect x="10" y="2" width="4" height="9" rx="2" fill="#36c5f0" />
+        <rect x="13" y="10" width="9" height="4" rx="2" fill="#2eb67d" />
+        <rect x="10" y="13" width="4" height="9" rx="2" fill="#ecb22e" />
+        <rect x="2" y="10" width="9" height="4" rx="2" fill="#e01e5a" />
+      </svg>
+    );
+  else if (/notion/.test(n))
+    icon = (
+      <svg {...svg} width="15" height="15" fill="none" stroke="#f0f0f2" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+        <rect x="4" y="3.500" width="16" height="17" rx="2.500" />
+        <path d="M9 16.500v-9l6 9v-9" />
+      </svg>
+    )
+  else if (/figma/.test(n))
+    icon = (
+      <svg {...svg} width="15" height="15">
+        <rect x="7" y="2.500" width="5" height="5" rx="2.500" fill="#f24e1e" />
+        <rect x="12" y="2.500" width="5" height="5" rx="2.500" fill="#ff7262" />
+        <rect x="7" y="7.500" width="5" height="5" rx="2.500" fill="#a259ff" />
+        <circle cx="14.500" cy="10" r="2.500" fill="#1abcfe" />
+        <rect x="7" y="12.500" width="5" height="5" rx="2.500" fill="#0acf83" />
+      </svg>
+    )
+  else if (/stripe|billing|payment/.test(n))
+    icon = (
+      <svg {...svg} width="16" height="16">
+        <rect x="3" y="3" width="18" height="18" rx="5" fill="#635bff" />
+        <path d="M14.500 9.500c-1.300-.6-3.300-.5-3.300.8 0 1.900 3.700 1.100 3.700 3.200 0 1.400-1.900 1.900-3.600 1" stroke="#fff" strokeWidth="1.700" fill="none" strokeLinecap="round" />
+      </svg>
+    )
+  else if (/hubspot|crm/.test(n))
+    icon = (
+      <svg {...svg} width="15" height="15" fill="none" stroke="#ff7a59" strokeWidth="2" strokeLinecap="round">
+        <circle cx="14" cy="14" r="3.500" />
+        <path d="M14 10.500V5M10.700 12.500L6 9.500M10.700 15.500L7 19" />
+        <circle cx="14" cy="4" r="1.300" fill="#ff7a59" />
+        <circle cx="5.500" cy="9" r="1.300" fill="#ff7a59" />
+      </svg>
+    )
+  else if (/search|web|browse/.test(n))
+    icon = (
+      <svg {...line}>
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M16 16l4.500 4.500" />
+      </svg>
+    );
+  else if (/dataset|database|sql|table|sheet/.test(n))
+    icon = (
+      <svg {...line}>
+        <ellipse cx="12" cy="6" rx="7" ry="3" />
+        <path d="M5 6v6c0 1.700 3.100 3 7 3s7-1.300 7-3V6M5 12v6c0 1.700 3.100 3 7 3s7-1.300 7-3v-6" />
+      </svg>
+    );
+  else if (/citation|quote|source|reference/.test(n))
+    icon = (
+      <svg {...line}>
+        <path d="M9 7H6a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2v1.500A2.500 2.500 0 0 1 5.500 18M20 7h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2v1.500a2.500 2.500 0 0 1-2.500 2.500" />
+      </svg>
+    );
+  else if (/code|sandbox|terminal|shell/.test(n))
+    icon = (
+      <svg {...line}>
+        <path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.500 5l-3 14" />
+      </svg>
+    );
+  else if (/doc|note|page|write/.test(n))
+    icon = (
+      <svg {...line}>
+        <path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6" />
+      </svg>
+    );
+  else icon = <span className="xn-at__letter">{name.slice(0, 1).toUpperCase()}</span>;
+  return (
+    <span className="xn-at__tool" title={name}>
+      <span className="xn-at__sr">{name}</span>
+      {icon}
+    </span>
+  );
+}
+
+/** A number that glides to its new value instead of jumping – costs tick up rather than flicker */
+function useTween(target: number, ms: number) {
+  const [value, setValue] = useState(target);
+  const current = useRef(target);
+  useEffect(() => {
+    if (ms <= 0 || current.current === target) {
+      current.current = target;
+      setValue(target);
+      return;
+    }
+    const from = current.current;
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min((t - t0) / ms, 1);
+      current.current = from + (target - from) * (1 - Math.pow(1 - k, 3));
+      setValue(current.current);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return value;
+}
+
+function Money({ value, format }: { value: number; format: (n: number) => string }) {
+  const reduced = useReducedMotion();
+  return <>{format(useTween(value, reduced ? 0 : 700))}</>;
+}
+
+/** Ids of the agents above `id`, outermost first */
+const ancestorsOf = (a: TreeAgent, id: string, path: string[] = []): string[] | null => {
+  if (a.id === id) return path;
+  for (const c of a.children ?? []) {
+    const hit = ancestorsOf(c, id, [...path, a.id]);
+    if (hit) return hit;
+  }
+  return null;
+};
 
 const formatTime = (ms: number) => {
   const s = Math.max(Math.floor(ms / 1000), 0);
@@ -87,8 +252,12 @@ const branchCost = (a: TreeAgent): number => (a.cost ?? 0) + (a.children ?? []).
 const ticking = (s: TreeStatus) => s === "running" || s === "waiting";
 const anyTicking = (a: TreeAgent): boolean => (ticking(a.status) && a.ended === undefined) || (a.children ?? []).some(anyTicking);
 
-/** Does anything below this agent need a person? */
-const needsYouBelow = (a: TreeAgent): boolean => (a.children ?? []).some((c) => c.status === "waiting" || c.status === "failed" || needsYouBelow(c));
+/** What below this agent needs a person: a failure first, then a question */
+const needsYouBelow = (a: TreeAgent): "failed" | "waiting" | null => {
+  const kids = a.children ?? [];
+  const found = [...kids.map((c) => c.status), ...kids.map((c) => needsYouBelow(c))];
+  return found.includes("failed") ? "failed" : found.includes("waiting") ? "waiting" : null;
+};
 
 export function AgentTree({
   root,
@@ -148,14 +317,47 @@ export function AgentTree({
 
   let total = 0;
   let running = 0;
-  let waiting = 0;
+  const byStatus: Record<"waiting" | "failed", TreeAgent[]> = { waiting: [], failed: [] };
   const count = (a: TreeAgent) => {
     total++;
     if (a.status === "running") running++;
-    if (a.status === "waiting") waiting++;
+    if (a.status === "waiting" || a.status === "failed") byStatus[a.status].push(a);
     a.children?.forEach(count);
   };
   count(root);
+
+  // The "needs you" and "failed" counts open a list; choosing an agent opens its branch, scrolls to it and flashes it
+  const [menu, setMenu] = useState<"waiting" | "failed" | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+  const head = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const away = (e: PointerEvent) => {
+      if (!head.current?.contains(e.target as Node)) setMenu(null);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setMenu(null);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [menu]);
+  const jump = (id: string) => {
+    setMenu(null);
+    const above = ancestorsOf(root, id) ?? [];
+    const next = collapsed.filter((c) => !above.includes(c));
+    if (next.length !== collapsed.length) {
+      if (controlledCollapsed === undefined) setInternalCollapsed(next);
+      onCollapsedChange?.(next);
+    }
+    window.setTimeout(() => {
+      const el = scrollRef.current?.querySelector(`[data-agent="${CSS.escape(id)}"]`);
+      el?.scrollIntoView({ block: "center", inline: "center", behavior: reducedMotion ? "auto" : "smooth" });
+      setFlash(id);
+      window.setTimeout(() => setFlash(null), 1500);
+    }, 80);
+  };
 
   return (
     <>
@@ -163,25 +365,57 @@ export function AgentTree({
         {css}
       </style>
       <section className={["xn-at", className].filter(Boolean).join(" ")} aria-label={title} data-mode={mode} data-intro={intro || undefined} data-animate={animate || undefined}>
-        <header className="xn-at__head">
-          <h2 className="xn-at__title">{title}</h2>
+        <header className="xn-at__head" ref={head}>
+          <h2 className="xn-at__title">
+            <svg {...svg} width="18" height="18" fill="currentColor">
+              <path d="M10.500 3.500c.6 3.600 2.400 5.400 6 6-3.600.6-5.400 2.400-6 6-.6-3.600-2.400-5.400-6-6 3.600-.6 5.400-2.400 6-6z" />
+              <circle cx="18.500" cy="17.500" r="1.700" />
+            </svg>
+            {title}
+          </h2>
           <div className="xn-at__stats">
-            <span>
+            <span key={`agents-${total}`} data-bump={!intro || undefined}>
               {total} {total === 1 ? "agent" : "agents"}
             </span>
-            <span className="xn-at__stat-run">{running} running</span>
-            {waiting > 0 && (
-              <span className="xn-at__stat-wait">
-                {waiting} {waiting === 1 ? "needs" : "need"} a decision
+            {running > 0 && (
+              <span key={`running-${running}`} className="xn-at__stat-run" data-bump={!intro || undefined}>
+                {running} running
               </span>
             )}
-            <span className="xn-at__stat-cost">{formatCost(branchCost(root))}</span>
+            {(["waiting", "failed"] as const).map(
+              (kind) =>
+                byStatus[kind].length > 0 && (
+                  <span key={kind} className="xn-at__menuwrap">
+                    <button type="button" className="xn-at__chip" data-kind={kind} aria-haspopup="menu" aria-expanded={menu === kind} onClick={() => setMenu(menu === kind ? null : kind)}>
+                      {byStatus[kind].length} {kind === "failed" ? "failed" : byStatus[kind].length === 1 ? "needs you" : "need you"}
+                      <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" focusable="false">
+                        <path d="M5 7.500 10 12.500 15 7.500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    {menu === kind && (
+                      <ul className="xn-at__menu" role="menu">
+                        {byStatus[kind].map((a) => (
+                          <li key={a.id} role="none">
+                            <button type="button" role="menuitem" onClick={() => jump(a.id)}>
+                              <b>{a.name}</b>
+                              <span>{kind === "failed" ? a.error ?? a.task : a.ask ?? a.task}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </span>
+                ),
+            )}
+            <span className="xn-at__stat-cost">
+              <Money value={branchCost(root)} format={formatCost} />
+            </span>
           </div>
         </header>
 
         <div ref={scrollRef} className="xn-at__scroll">
           <ul className="xn-at__tree">
-            <Branch node={root} depth={0} collapsed={collapsed} onToggle={toggle} onSelect={onSelect} selected={selected} nowMs={nowMs} formatCost={formatCost} />
+            <Branch node={root} depth={0} collapsed={collapsed} onToggle={toggle} onSelect={onSelect} selected={selected} nowMs={nowMs} formatCost={formatCost} flash={flash} settled={!intro} />
           </ul>
         </div>
       </section>
@@ -198,15 +432,18 @@ type BranchProps = {
   selected?: string;
   nowMs: number;
   formatCost: (n: number) => string;
+  flash?: string | null;
+  /** The intro has played, so an agent that arrives now is new */
+  settled?: boolean;
 };
 
-function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, formatCost }: BranchProps) {
+function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, formatCost, flash, settled }: BranchProps) {
   const kids = node.children ?? [];
   const hasKids = kids.length > 0;
   const folded = collapsed.includes(node.id);
   const clickable = !!onSelect && node.selectable !== false;
   const isSelected = selected === node.id;
-  const alertBelow = folded && needsYouBelow(node);
+  const alertBelow = folded ? needsYouBelow(node) : null;
 
   const reduced = useReducedMotion();
   // Only a branch the person just unfolded animates in; branches present from the start do not
@@ -233,12 +470,17 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
   const showKids = hasKids && (!folded || kept);
 
   // A change of state settles in once; neither the first render nor the clock's ticks animate
+  // An agent that turns up after the tree has settled arrives with a motion of its own
+  const [born] = useState(!!settled);
   const seen = useRef(node.status);
   const [changed, setChanged] = useState(false);
+  // Counts the changes so every one flares the card, not only the first
+  const [flares, setFlares] = useState(0);
   useEffect(() => {
     if (seen.current === node.status) return;
     seen.current = node.status;
     setChanged(true);
+    setFlares((f) => f + 1);
   }, [node.status]);
 
   const end = node.ended ?? (ticking(node.status) ? nowMs : undefined);
@@ -250,7 +492,7 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
     <>
       <span className="xn-at__top">
         <span className="xn-at__avatar" aria-hidden="true">
-          {node.name.slice(0, 1).toUpperCase()}
+          <ModelMark model={node.model} name={node.name} />
         </span>
         <span className="xn-at__who">
           <span className="xn-at__name">
@@ -261,37 +503,52 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
         </span>
         <span key={node.status} className="xn-at__badge" data-status={node.status} data-changed={changed || undefined}>
           {node.status === "running" && <span className="xn-at__spin" aria-hidden="true" />}
+          {node.status === "done" && (
+            <svg {...svg} width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12.500l4.500 4.500L19 7.500" />
+            </svg>
+          )}
+          {node.status === "failed" && (
+            <svg {...svg} width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3.500L2.500 20h19zM12 10v4.500M12 17.500v.01" />
+            </svg>
+          )}
+          {node.status === "waiting" && (
+            <svg {...svg} width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="8.500" />
+              <path d="M12 7.500V12l3 2" />
+            </svg>
+          )}
           {STATUS_LABEL[node.status]}
         </span>
       </span>
 
-      <span className="xn-at__task">{node.task}</span>
+      <span className="xn-at__task">
+        {node.tools && node.tools.length > 0 && (
+          <span className="xn-at__tools">
+            <span className="xn-at__sr">Tools: </span>
+            {node.tools.map((t) => (
+              <ToolGlyph key={t} name={t} />
+            ))}
+          </span>
+        )}
+        {node.task}
+      </span>
       {note && (
         <span className="xn-at__note" data-status={node.status}>
           {note}
         </span>
       )}
       {alertBelow && (
-        <span className="xn-at__note" data-status="waiting">
-          A sub-agent needs a decision
-        </span>
-      )}
-
-      {node.tools && node.tools.length > 0 && (
-        <span className="xn-at__tools">
-          <span className="xn-at__sr">Tools: </span>
-          {node.tools.map((t) => (
-            <span key={t} className="xn-at__tool">
-              {t}
-            </span>
-          ))}
+        <span className="xn-at__note" data-status={alertBelow}>
+          {alertBelow === "failed" ? "A sub-agent failed" : "A sub-agent needs you"}
         </span>
       )}
 
       <span className="xn-at__foot">
         <span className="xn-at__cost">
           <span className="xn-at__sr">Cost </span>
-          {formatCost(branchCost(node))}
+          <Money value={branchCost(node)} format={formatCost} />
         </span>
         {time && (
           <>
@@ -305,8 +562,8 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
   );
 
   return (
-    <li className="xn-at__node" style={{ "--d": depth } as CSSProperties}>
-      <div className="xn-at__card" data-status={node.status} data-selected={isSelected || undefined} data-folds={hasKids || undefined}>
+    <li className="xn-at__node" data-born={born || undefined} style={{ "--d": depth } as CSSProperties}>
+      <div className="xn-at__card" data-agent={node.id} data-status={node.status} data-selected={isSelected || undefined} data-flash={flash === node.id || undefined} data-flare={flares > 0 ? flares % 2 : undefined} data-folds={hasKids || undefined}>
         {clickable ? (
           <button type="button" className="xn-at__main" aria-current={isSelected || undefined} onClick={() => onSelect?.(node)}>
             {body}
@@ -316,6 +573,7 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
         )}
         {hasKids && (
           <button type="button" className="xn-at__fold" aria-expanded={!folded} aria-label={foldLabel} onClick={() => onToggle(node.id)}>
+            {folded ? "+" : ""}
             {kids.length}
             <svg className="xn-at__chev" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" focusable="false">
               <path d="M5 7.5 10 12.5 15 7.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -328,7 +586,7 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
       {showKids && (
         <ul className={depth === 0 ? "xn-at__top-level" : "xn-at__stack"} data-leaving={folded || undefined} data-entering={justOpened || undefined}>
           {kids.map((child) => (
-            <Branch key={child.id} node={child} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} onSelect={onSelect} selected={selected} nowMs={nowMs} formatCost={formatCost} />
+            <Branch key={child.id} node={child} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} onSelect={onSelect} selected={selected} nowMs={nowMs} formatCost={formatCost} flash={flash} settled={settled && !justOpened} />
           ))}
         </ul>
       )}
@@ -480,7 +738,95 @@ ${stacked('.xn-at[data-mode="stack"] .xn-at__top-level')}
 /* The spinner only turns while the tree is in view and the page is in front */
 .xn-at:not([data-animate]) .xn-at__spin { animation-play-state: paused; }
 
+/* The look of the reference recording: neutral dark cards, a periwinkle accent, brand marks and tool tiles */
+.xn-at {
+  --xn-at-card: #1d1d20;
+  --xn-at-raised: #232326;
+  --xn-at-chip: #2d2d31;
+  --xn-at-border: #2a2a2e;
+  --xn-at-link: #5a82d6;
+  --xn-at-text: #f4f4f6;
+  --xn-at-muted: #8f8f98;
+  --xn-at-accent: #8fa3ff;
+  --xn-at-warning: #e9a574;
+  --xn-at-critical: #f2917e;
+  --xn-at-success: #7fd9a6;
+}
+.xn-at__title { display: inline-flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.xn-at__title svg { color: var(--xn-at-accent); }
+.xn-at__head { align-items: center; }
+.xn-at__stats { align-items: center; gap: 6px 18px; font-size: 16px; }
+.xn-at__stat-cost { font-weight: 600; }
+.xn-at__menuwrap { position: relative; display: inline-flex; }
+.xn-at__chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 12px; border: 0; border-radius: 9px; font: inherit; font-size: 16px; cursor: pointer; transition: filter 0.15s; }
+.xn-at__chip:hover { filter: brightness(1.2); }
+.xn-at__chip[data-kind="failed"] { background: #4a2626; color: var(--xn-at-critical); }
+.xn-at__chip[data-kind="waiting"] { background: #4a3321; color: var(--xn-at-warning); }
+.xn-at__chip[aria-expanded="true"] svg { transform: rotate(180deg); }
+.xn-at__chip svg { transition: transform 0.15s; }
+.xn-at__chip:focus-visible { outline: 2px solid var(--xn-at-accent); outline-offset: 2px; }
+.xn-at__menu { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: max-content; min-width: 260px; max-width: 340px; padding: 6px; border-radius: 14px; background: #232326; border: 1px solid #34343a; box-shadow: 0 18px 50px #000a; animation: xn-at-fade 0.15s ease-out; }
+.xn-at__menu button { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 9px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--xn-at-text); font: inherit; text-align: left; cursor: pointer; }
+.xn-at__menu button:hover, .xn-at__menu button:focus-visible { background: #2d2d33; outline: none; }
+.xn-at__menu b { font-size: 15px; font-weight: 600; }
+.xn-at__menu span { font-size: 13px; color: var(--xn-at-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.xn-at__card[data-status="queued"], .xn-at__card[data-status="paused"] { background: #19191c; }
+.xn-at__card[data-status="waiting"] { border-color: #6e5636; }
+.xn-at__card[data-status="failed"] { border-color: #6e3f3d; }
+.xn-at__card[data-selected] { background: var(--xn-at-raised); box-shadow: 0 0 0 1px var(--xn-at-accent); }
+.xn-at__card[data-flash]::before { content: ""; position: absolute; inset: -3px; border-radius: 19px; border: 2px solid var(--xn-at-accent); pointer-events: none; animation: xn-at-flash 0.5s ease-in-out 3 both; }
+@keyframes xn-at-flash { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+button.xn-at__main:hover { background: rgba(255, 255, 255, 0.03); }
+.xn-at__avatar { width: 40px; height: 40px; border-radius: 12px; background: #19191c; border: 1px solid #2a2a2e; color: #d8d8de; }
+.xn-at__letter { font-size: 13px; font-weight: 700; }
+.xn-at__name { font-size: 19px; font-weight: 600; }
+.xn-at__model { font-size: 15px; }
+.xn-at__badge { padding: 5px 11px; font-size: 14px; font-weight: 600; background: var(--xn-at-chip); }
+.xn-at__badge[data-status="running"] { background: #2a3156; color: #8fa3ff; }
+.xn-at__badge[data-status="waiting"] { background: #4a3321; color: var(--xn-at-warning); }
+.xn-at__badge[data-status="done"] { background: #1f3a2c; color: var(--xn-at-success); }
+.xn-at__badge[data-status="failed"] { background: #4a2626; color: var(--xn-at-critical); }
+.xn-at__spin { border-color: rgba(143, 163, 255, 0.28); border-top-color: #8fa3ff; }
+.xn-at__task { color: #e6e6ea; font-size: 17px; line-height: 1.5; }
+.xn-at__note[data-status="waiting"] { background: #3f2f20; color: var(--xn-at-warning); }
+.xn-at__note[data-status="failed"] { background: #432424; color: var(--xn-at-critical); }
+.xn-at__tools { display: inline-flex; align-items: center; gap: 1px; padding: 2px; margin-right: 8px; vertical-align: -5px; border-radius: 10px; background: #161619; border: 1px solid #2a2a2e; }
+.xn-at__tool { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border-radius: 7px; background: transparent; color: #d8d8de; font-size: 0; }
+.xn-at__tool .xn-at__letter { font-size: 11px; }
+.xn-at__cost { font-weight: 650; }
+.xn-at__fold { color: var(--xn-at-muted); }
+.xn-at__port { background: var(--xn-at-card); }
+
+.xn-at__top { gap: 6px 8px; }
+.xn-at__who { flex: 1 1 90px; }
+.xn-at__avatar { flex: none; width: 38px; height: 38px; }
+.xn-at__badge { padding: 4px 9px; font-size: 13px; }
+.xn-at__fold { border: 0; background: transparent; font-size: 16px; }
+.xn-at__fold:hover { background: rgba(255, 255, 255, 0.06); }
+
+
+/* Motion: an agent that arrives later rises into place and its link draws in; a card whose state changes flares once;
+   the header counts bump when they change; chips pop in */
+@keyframes xn-at-draw { from { clip-path: inset(0 0 100% 0); } }
+@keyframes xn-at-drawx { from { clip-path: inset(0 100% 0 0); } }
+@keyframes xn-at-flare { 0% { box-shadow: 0 0 0 0 rgba(143, 163, 255, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(143, 163, 255, 0); } }
+@keyframes xn-at-bump { 0% { transform: translateY(5px) scale(0.92); opacity: 0.4; } 100% { transform: none; opacity: 1; } }
+@keyframes xn-at-pop { from { transform: scale(0.8); opacity: 0; } }
+.xn-at__node[data-born] > .xn-at__card { animation: xn-at-rise 480ms cubic-bezier(.22, 1, .36, 1) both; }
+.xn-at__node[data-born]::before { animation: xn-at-draw 520ms cubic-bezier(.22, 1, .36, 1) both; }
+.xn-at[data-mode="spread"] .xn-at__top-level > .xn-at__node[data-born]::before { animation: xn-at-drawx 520ms cubic-bezier(.22, 1, .36, 1) both; }
+.xn-at__node[data-born] .xn-at__port { animation: xn-at-pop 360ms 200ms cubic-bezier(.22, 1, .36, 1) both; }
+.xn-at__card[data-flare="1"] { animation: xn-at-flare 800ms ease-out; }
+.xn-at__card[data-flare="0"] { animation: xn-at-flare-b 800ms ease-out; }
+@keyframes xn-at-flare-b { 0% { box-shadow: 0 0 0 0 rgba(143, 163, 255, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(143, 163, 255, 0); } }
+.xn-at__card { transition: border-color 0.4s, background-color 0.4s, box-shadow 0.4s, transform 160ms cubic-bezier(.22, 1, .36, 1); }
+.xn-at__stats [data-bump] { animation: xn-at-bump 320ms cubic-bezier(.22, 1, .36, 1) both; }
+.xn-at__chip { animation: xn-at-pop 280ms cubic-bezier(.22, 1, .36, 1) both; }
+.xn-at__badge { transition: background-color 0.3s, color 0.3s; }
+
 @media (prefers-reduced-motion: reduce) {
+  .xn-at__node[data-born] > .xn-at__card, .xn-at__node[data-born]::before, .xn-at__node[data-born] .xn-at__port, .xn-at__card[data-flare], .xn-at__stats [data-bump], .xn-at__chip, .xn-at__card[data-flash]::before { animation: none; }
   .xn-at__card, .xn-at__chev, .xn-at__main, .xn-at__fold { transition: none; }
   .xn-at__main:active, .xn-at__fold:active, .xn-at__card:has(button.xn-at__main:hover) { transform: none; }
   .xn-at__spin, .xn-at [data-entering], .xn-at [data-leaving], .xn-at__badge[data-changed], .xn-at[data-intro] .xn-at__card, .xn-at[data-intro] .xn-at__node > ul, .xn-at__card[data-selected]::after { animation: none; }
