@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useReducedMotion, useVisualActivity } from "../motion";
 
 /** How long a folding branch takes to leave – the same as its CSS exit */
 const EXIT_MS = 180;
-/** Room one card takes, one first-level column with its bar, and the gap between wrapped columns */
-const CARD_W = 332;
-const SPREAD_W = 348;
+/** The width of one card, one first-level column with its bar, and the gap between wrapped columns */
+const DEFAULT_CARD_W = 332;
+/** Room beside a card in the first level */
+const SPREAD_PAD = 16;
 const GAP = 16;
 
 /*
@@ -20,6 +21,15 @@ const GAP = 16;
  * its space). Narrow: every level stacks. A card shows its state, what it was asked to do, the tools it uses and
  * what it and everything below it has cost. A branch folds away; a folded branch that holds an agent needing you
  * says so. Clocks run while an agent is working or waiting and stand still once it is paused, done or failed.
+ */
+
+/*
+ * Configure it with props: `labels` replaces every word it shows, `renderAvatar` and `renderTool` draw your own marks,
+ * `cardWidth` sets how wide a card is, `showHeader`, `showCost`, `showTime`, `intro` and `motion` switch parts on and
+ * off, `formatCost` shapes money. Restyle it with CSS variables set through `style` or `className`, or in a rule such as
+ * `.my-theme .xn-at` (a variable set on a parent does not reach it): --xn-at-card, -raised, -border, -link (the connectors), -text, -muted, -accent,
+ * -success, -warning, -critical, -running-bg, -done-bg, -failed-bg, -waiting-bg, -card-w and the rest listed in the
+ * stylesheet.
  */
 
 export type TreeStatus = "queued" | "running" | "waiting" | "paused" | "done" | "failed";
@@ -60,16 +70,66 @@ export interface AgentTreeProps {
   now?: number | Date;
   formatCost?: (amount: number) => string;
   title?: string;
+  /** Replace any of the words the component shows */
+  labels?: Partial<TreeLabels>;
+  /** Draw an agent's mark yourself; defaults to the mark of its model */
+  renderAvatar?: (agent: TreeAgent) => ReactNode;
+  /** Draw a tool's mark yourself; defaults to a glyph chosen from its name */
+  renderTool?: (tool: string, agent: TreeAgent) => ReactNode;
+  /** How wide a card is, in px (default 332) */
+  cardWidth?: number;
+  /** The title and counts above the tree (default true) */
+  showHeader?: boolean;
+  showCost?: boolean;
+  showTime?: boolean;
+  /** Play the arrival of the team when it first shows (default true) */
+  intro?: boolean;
+  /** Turn every animation off (default on; the visitor's reduced-motion setting always wins) */
+  motion?: boolean;
   className?: string;
+  style?: CSSProperties;
 }
 
-const STATUS_LABEL: Record<TreeStatus, string> = {
-  queued: "Queued",
-  running: "Running",
-  waiting: "Needs you",
-  paused: "Paused",
-  done: "Done",
-  failed: "Failed",
+type BranchConfig = {
+  L: TreeLabels;
+  renderAvatar?: AgentTreeProps["renderAvatar"];
+  renderTool?: AgentTreeProps["renderTool"];
+  showCost: boolean;
+  showTime: boolean;
+  motion: boolean;
+};
+
+
+
+/** Every word the component shows – pass any of them in `labels` */
+export interface TreeLabels {
+  status: Record<TreeStatus, string>;
+  agents: (count: number) => string;
+  running: (count: number) => string;
+  needYou: (count: number) => string;
+  failed: (count: number) => string;
+  subFailed: string;
+  subNeedsYou: string;
+  openRun: string;
+  tools: string;
+  cost: string;
+  viewing: string;
+  fold: (folded: boolean, count: number, name: string) => string;
+}
+
+export const defaultTreeLabels: TreeLabels = {
+  status: { queued: "Queued", running: "Running", waiting: "Needs you", paused: "Paused", done: "Done", failed: "Failed" },
+  agents: (n) => `${n} ${n === 1 ? "agent" : "agents"}`,
+  running: (n) => `${n} running`,
+  needYou: (n) => `${n} ${n === 1 ? "needs you" : "need you"}`,
+  failed: (n) => `${n} failed`,
+  subFailed: "A sub-agent failed",
+  subNeedsYou: "A sub-agent needs you",
+  openRun: "Open run for ",
+  tools: "Tools: ",
+  cost: "Cost ",
+  viewing: "Viewing",
+  fold: (folded, n, name) => `${folded ? "Show" : "Hide"} ${n} sub-${n === 1 ? "agent" : "agents"} of ${name}`,
 };
 
 const defaultFormatCost = (n: number) => `$${n.toFixed(2)}`;
@@ -90,7 +150,7 @@ function ModelMark({ model, name }: { model?: string; name: string }) {
     );
   if (/gpt|openai|codex/.test(m))
     return (
-      <svg {...svg} width="22" height="22" stroke="#f0f0f2" strokeWidth="1.5" strokeLinejoin="round" fill="none">
+      <svg {...svg} width="22" height="22" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" fill="none">
         {[0, 60, 120].map((r) => (
           <rect key={r} x="6.5" y="3.2" width="11" height="17.6" rx="5.5" transform={`rotate(${r} 12 12)`} />
         ))}
@@ -127,7 +187,7 @@ function ToolGlyph({ name }: { name: string }) {
     );
   else if (/notion/.test(n))
     icon = (
-      <svg {...svg} width="15" height="15" fill="none" stroke="#f0f0f2" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <svg {...svg} width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
         <rect x="4" y="3.500" width="16" height="17" rx="2.500" />
         <path d="M9 16.500v-9l6 9v-9" />
       </svg>
@@ -224,9 +284,9 @@ function useTween(target: number, ms: number) {
   return value;
 }
 
-function Money({ value, format }: { value: number; format: (n: number) => string }) {
+function Money({ value, format, still }: { value: number; format: (n: number) => string; still?: boolean }) {
   const reduced = useReducedMotion();
-  return <>{format(useTween(value, reduced ? 0 : 700))}</>;
+  return <>{format(useTween(value, reduced || still ? 0 : 700))}</>;
 }
 
 /** Ids of the agents above `id`, outermost first */
@@ -269,8 +329,22 @@ export function AgentTree({
   now,
   formatCost = defaultFormatCost,
   title = "Agents",
+  labels,
+  renderAvatar,
+  renderTool,
+  cardWidth = DEFAULT_CARD_W,
+  showHeader = true,
+  showCost = true,
+  showTime = true,
+  intro: playIntro = true,
+  motion = true,
   className = "",
+  style,
 }: AgentTreeProps) {
+  const L = useMemo<TreeLabels>(() => ({ ...defaultTreeLabels, ...labels, status: { ...defaultTreeLabels.status, ...labels?.status } }), [labels]);
+  const cfg = useMemo<BranchConfig>(() => ({ L, renderAvatar, renderTool, showCost, showTime, motion }), [L, renderAvatar, renderTool, showCost, showTime, motion]);
+  const CARD_W = cardWidth;
+  const SPREAD_W = cardWidth + SPREAD_PAD;
   const [internalCollapsed, setInternalCollapsed] = useState<string[]>(defaultCollapsed);
   const collapsed = controlledCollapsed ?? internalCollapsed;
 
@@ -280,12 +354,12 @@ export function AgentTree({
   const scrollRef = useRef<HTMLDivElement>(null);
   const visible = useVisualActivity(scrollRef, true);
   const reducedMotion = useReducedMotion();
-  const animate = visible && !reducedMotion;
+  const animate = visible && !reducedMotion && motion;
   const needsClock = live && visible && anyTicking(root);
   // How the first level fits: side by side on a bar when every agent has room, else wrapped into columns, else stacked
   const [width, setWidth] = useState(0);
   // The team arrives once, as the tab opens; the attribute goes once it has played so later changes don't replay it
-  const [intro, setIntro] = useState(true);
+  const [intro, setIntro] = useState(playIntro);
   useEffect(() => {
     const id = window.setTimeout(() => setIntro(false), 1500);
     return () => window.clearTimeout(id);
@@ -364,7 +438,8 @@ export function AgentTree({
       <style href="xn-agent-tree" precedence="default">
         {css}
       </style>
-      <section className={["xn-at", className].filter(Boolean).join(" ")} aria-label={title} data-mode={mode} data-intro={intro || undefined} data-animate={animate || undefined}>
+      <section className={["xn-at", className].filter(Boolean).join(" ")} style={{ "--xn-at-card-w": `${cardWidth}px`, ...style } as CSSProperties} aria-label={title} data-mode={mode} data-motion={motion ? undefined : "off"} data-intro={intro || undefined} data-animate={animate || undefined}>
+        {showHeader && (
         <header className="xn-at__head" ref={head}>
           <h2 className="xn-at__title">
             <svg {...svg} width="18" height="18" fill="currentColor">
@@ -375,11 +450,11 @@ export function AgentTree({
           </h2>
           <div className="xn-at__stats">
             <span key={`agents-${total}`} data-bump={!intro || undefined}>
-              {total} {total === 1 ? "agent" : "agents"}
+              {L.agents(total)}
             </span>
             {running > 0 && (
               <span key={`running-${running}`} className="xn-at__stat-run" data-bump={!intro || undefined}>
-                {running} running
+                {L.running(running)}
               </span>
             )}
             {(["waiting", "failed"] as const).map(
@@ -387,7 +462,7 @@ export function AgentTree({
                 byStatus[kind].length > 0 && (
                   <span key={kind} className="xn-at__menuwrap">
                     <button type="button" className="xn-at__chip" data-kind={kind} aria-haspopup="menu" aria-expanded={menu === kind} onClick={() => setMenu(menu === kind ? null : kind)}>
-                      {byStatus[kind].length} {kind === "failed" ? "failed" : byStatus[kind].length === 1 ? "needs you" : "need you"}
+                      {kind === "failed" ? L.failed(byStatus[kind].length) : L.needYou(byStatus[kind].length)}
                       <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" focusable="false">
                         <path d="M5 7.500 10 12.500 15 7.500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
@@ -408,14 +483,15 @@ export function AgentTree({
                 ),
             )}
             <span className="xn-at__stat-cost">
-              <Money value={branchCost(root)} format={formatCost} />
+              <Money value={branchCost(root)} format={formatCost} still={!motion} />
             </span>
           </div>
         </header>
+        )}
 
         <div ref={scrollRef} className="xn-at__scroll">
           <ul className="xn-at__tree">
-            <Branch node={root} depth={0} collapsed={collapsed} onToggle={toggle} onSelect={onSelect} selected={selected} nowMs={nowMs} formatCost={formatCost} flash={flash} settled={!intro} />
+            <Branch node={root} depth={0} collapsed={collapsed} onToggle={toggle} onSelect={onSelect} selected={selected} nowMs={nowMs} formatCost={formatCost} flash={flash} settled={!intro} cfg={cfg} />
           </ul>
         </div>
       </section>
@@ -435,9 +511,10 @@ type BranchProps = {
   flash?: string | null;
   /** The intro has played, so an agent that arrives now is new */
   settled?: boolean;
+  cfg: BranchConfig;
 };
 
-function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, formatCost, flash, settled }: BranchProps) {
+function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, formatCost, flash, settled, cfg }: BranchProps) {
   const kids = node.children ?? [];
   const hasKids = kids.length > 0;
   const folded = collapsed.includes(node.id);
@@ -486,17 +563,17 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
   const end = node.ended ?? (ticking(node.status) ? nowMs : undefined);
   const time = node.started !== undefined && end !== undefined ? formatTime(end - node.started) : "";
   const note = node.status === "waiting" ? node.ask : node.status === "failed" ? node.error : undefined;
-  const foldLabel = `${folded ? "Show" : "Hide"} ${kids.length} sub-${kids.length === 1 ? "agent" : "agents"} of ${node.name}`;
+  const foldLabel = cfg.L.fold(folded, kids.length, node.name);
 
   const body = (
     <>
       <span className="xn-at__top">
         <span className="xn-at__avatar" aria-hidden="true">
-          <ModelMark model={node.model} name={node.name} />
+          {cfg.renderAvatar ? cfg.renderAvatar(node) : <ModelMark model={node.model} name={node.name} />}
         </span>
         <span className="xn-at__who">
           <span className="xn-at__name">
-            {clickable && <span className="xn-at__sr">Open run for </span>}
+            {clickable && <span className="xn-at__sr">{cfg.L.openRun}</span>}
             {node.name}
           </span>
           {node.model && <span className="xn-at__model">{node.model}</span>}
@@ -519,16 +596,23 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
               <path d="M12 7.500V12l3 2" />
             </svg>
           )}
-          {STATUS_LABEL[node.status]}
+          {cfg.L.status[node.status]}
         </span>
       </span>
 
       <span className="xn-at__task">
         {node.tools && node.tools.length > 0 && (
           <span className="xn-at__tools">
-            <span className="xn-at__sr">Tools: </span>
+            <span className="xn-at__sr">{cfg.L.tools}</span>
             {node.tools.map((t) => (
-              <ToolGlyph key={t} name={t} />
+              cfg.renderTool ? (
+                <span key={t} className="xn-at__tool" title={t}>
+                  <span className="xn-at__sr">{t}</span>
+                  {cfg.renderTool(t, node)}
+                </span>
+              ) : (
+                <ToolGlyph key={t} name={t} />
+              )
             ))}
           </span>
         )}
@@ -541,22 +625,24 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
       )}
       {alertBelow && (
         <span className="xn-at__note" data-status={alertBelow}>
-          {alertBelow === "failed" ? "A sub-agent failed" : "A sub-agent needs you"}
+          {alertBelow === "failed" ? cfg.L.subFailed : cfg.L.subNeedsYou}
         </span>
       )}
 
-      <span className="xn-at__foot">
-        <span className="xn-at__cost">
-          <span className="xn-at__sr">Cost </span>
-          <Money value={branchCost(node)} format={formatCost} />
-        </span>
-        {time && (
+      <span className="xn-at__foot" data-empty={!cfg.showCost && !(cfg.showTime && time) && !isSelected && !hasKids ? true : undefined}>
+        {cfg.showCost && (
+          <span className="xn-at__cost">
+            <span className="xn-at__sr">{cfg.L.cost}</span>
+            <Money value={branchCost(node)} format={formatCost} still={!cfg.motion} />
+          </span>
+        )}
+        {cfg.showTime && time && (
           <>
-            <span aria-hidden="true">·</span>
+            {cfg.showCost && <span aria-hidden="true">·</span>}
             <span>{time}</span>
           </>
         )}
-        {isSelected && <span className="xn-at__viewing">Viewing</span>}
+        {isSelected && <span className="xn-at__viewing">{cfg.L.viewing}</span>}
       </span>
     </>
   );
@@ -586,7 +672,7 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
       {showKids && (
         <ul className={depth === 0 ? "xn-at__top-level" : "xn-at__stack"} data-leaving={folded || undefined} data-entering={justOpened || undefined}>
           {kids.map((child) => (
-            <Branch key={child.id} node={child} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} onSelect={onSelect} selected={selected} nowMs={nowMs} formatCost={formatCost} flash={flash} settled={settled && !justOpened} />
+            <Branch key={child.id} node={child} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} onSelect={onSelect} selected={selected} nowMs={nowMs} formatCost={formatCost} flash={flash} settled={settled && !justOpened} cfg={cfg} />
           ))}
         </ul>
       )}
@@ -604,17 +690,6 @@ ${list} > .xn-at__node:not(:last-child)::after { content: ""; position: absolute
 
 const css = /* css */ `
 .xn-at {
-  --xn-at-card: #131e2b;
-  --xn-at-raised: #1b2939;
-  --xn-at-chip: #26364a;
-  --xn-at-border: #405268;
-  --xn-at-link: #5f8fcf;
-  --xn-at-text: #f4f6fb;
-  --xn-at-muted: #b3c4d8;
-  --xn-at-accent: #9ecbff;
-  --xn-at-warning: #f5d39a;
-  --xn-at-critical: #ffaaa3;
-  --xn-at-success: #9be7c7;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -639,35 +714,35 @@ const css = /* css */ `
 ${stacked(".xn-at__stack")}
 
 .xn-at__card { position: relative; border-radius: 16px; background: var(--xn-at-card); border: 1px solid var(--xn-at-border); transition: transform 160ms cubic-bezier(.22, 1, .36, 1), border-color 160ms cubic-bezier(.22, 1, .36, 1), background-color 160ms cubic-bezier(.22, 1, .36, 1); }
-.xn-at__card[data-status="queued"], .xn-at__card[data-status="paused"] { background: #101925; }
-.xn-at__card[data-status="waiting"] { border-color: #8a7347; }
-.xn-at__card[data-status="failed"] { border-color: #8a5655; }
+.xn-at__card[data-status="queued"], .xn-at__card[data-status="paused"] { background: var(--xn-at-idle); }
+.xn-at__card[data-status="waiting"] { border-color: var(--xn-at-waiting-border); }
+.xn-at__card[data-status="failed"] { border-color: var(--xn-at-failed-border); }
 .xn-at__card[data-selected] { border-color: var(--xn-at-accent); background: var(--xn-at-raised); box-shadow: 0 0 0 1px var(--xn-at-accent); }
 
 /* The select button is the whole card; the fold button sits on top of its foot */
 .xn-at__main { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 100%; padding: 14px 16px 6px; border: 0; border-radius: 16px; background: transparent; color: inherit; font: inherit; text-align: left; }
 button.xn-at__main { cursor: pointer; }
-button.xn-at__main:hover { background: rgba(158, 203, 255, 0.05); }
+button.xn-at__main:hover { background: var(--xn-at-hover); }
 .xn-at__main:focus-visible, .xn-at__fold:focus-visible { outline: 3px solid var(--xn-at-accent); outline-offset: 2px; }
 
 .xn-at__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
-.xn-at__avatar { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: #243b55; color: #b7e0ff; font-size: 16px; font-weight: 700; }
+.xn-at__avatar { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--xn-at-avatar-bg); color: var(--xn-at-icon); font-size: 16px; font-weight: 700; }
 .xn-at__who { flex: 1 1 120px; min-width: 0; display: flex; flex-direction: column; }
 .xn-at__name { font-size: 18px; line-height: 1.25; font-weight: 650; overflow-wrap: break-word; }
 .xn-at__model { font-size: 14px; color: var(--xn-at-muted); }
 
 .xn-at__badge { flex: none; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 5px 10px; border-radius: 8px; background: var(--xn-at-chip); color: var(--xn-at-muted); font-size: 13px; font-weight: 650; text-align: right; }
-.xn-at__badge[data-status="running"] { background: #213a57; color: var(--xn-at-accent); }
-.xn-at__badge[data-status="waiting"] { background: #3d3524; color: var(--xn-at-warning); }
-.xn-at__badge[data-status="done"] { background: #1d3c34; color: var(--xn-at-success); }
-.xn-at__badge[data-status="failed"] { background: #432a2c; color: var(--xn-at-critical); }
-.xn-at__spin { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(158, 203, 255, 0.3); border-top-color: var(--xn-at-accent); animation: xn-at-rot 1s linear infinite; }
+.xn-at__badge[data-status="running"] { background: var(--xn-at-running-bg); color: var(--xn-at-accent); }
+.xn-at__badge[data-status="waiting"] { background: var(--xn-at-waiting-bg); color: var(--xn-at-warning); }
+.xn-at__badge[data-status="done"] { background: var(--xn-at-done-bg); color: var(--xn-at-success); }
+.xn-at__badge[data-status="failed"] { background: var(--xn-at-failed-bg); color: var(--xn-at-critical); }
+.xn-at__spin { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--xn-at-spin-track); border-top-color: var(--xn-at-accent); animation: xn-at-rot 1s linear infinite; }
 @keyframes xn-at-rot { to { transform: rotate(360deg); } }
 
-.xn-at__task { font-size: 16px; line-height: 1.4; color: #d3e0ee; }
+.xn-at__task { font-size: 16px; line-height: 1.4; color: var(--xn-at-task); }
 .xn-at__note { align-self: flex-start; padding: 6px 10px; border-radius: 8px; font-size: 14px; line-height: 1.35; }
-.xn-at__note[data-status="waiting"] { background: #3d3524; color: var(--xn-at-warning); }
-.xn-at__note[data-status="failed"] { background: #432a2c; color: var(--xn-at-critical); }
+.xn-at__note[data-status="waiting"] { background: var(--xn-at-waiting-bg); color: var(--xn-at-warning); }
+.xn-at__note[data-status="failed"] { background: var(--xn-at-failed-bg); color: var(--xn-at-critical); }
 
 .xn-at__tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .xn-at__tool { padding: 2px 8px; border-radius: 6px; background: var(--xn-at-chip); color: var(--xn-at-muted); font-size: 13px; }
@@ -697,18 +772,18 @@ ${stacked('.xn-at[data-mode="stack"] .xn-at__top-level')}
 .xn-at[data-mode="stack"] .xn-at__port { left: 5px; }
 
 /* Board: more agents than fit side by side, so the first level wraps into columns under the root */
-.xn-at[data-mode="board"] .xn-at__tree > .xn-at__node > .xn-at__card { width: 332px; align-self: center; }
+.xn-at[data-mode="board"] .xn-at__tree > .xn-at__node > .xn-at__card { width: var(--xn-at-card-w); align-self: center; }
 .xn-at[data-mode="board"] .xn-at__port[data-root] { display: none; }
-.xn-at[data-mode="board"] .xn-at__top-level { display: grid; grid-template-columns: repeat(auto-fill, minmax(332px, 1fr)); gap: 16px; align-items: start; margin-top: 20px; }
+.xn-at[data-mode="board"] .xn-at__top-level { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--xn-at-card-w), 1fr)); gap: 16px; align-items: start; margin-top: 20px; }
 
 /* Spread: the first level runs side by side under the root, hung on a bar */
 .xn-at[data-mode="spread"] .xn-at__tree { display: flex; justify-content: center; }
 .xn-at[data-mode="spread"] .xn-at__tree > .xn-at__node { align-items: center; }
-.xn-at[data-mode="spread"] .xn-at__tree > .xn-at__node > .xn-at__card { width: 332px; }
+.xn-at[data-mode="spread"] .xn-at__tree > .xn-at__node > .xn-at__card { width: var(--xn-at-card-w); }
 .xn-at[data-mode="spread"] .xn-at__port[data-root] { left: calc(50% - 6px); }
 .xn-at[data-mode="spread"] .xn-at__top-level { display: flex; justify-content: center; position: relative; }
 .xn-at[data-mode="spread"] .xn-at__top-level::before { content: ""; position: absolute; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: var(--xn-at-link); }
-.xn-at[data-mode="spread"] .xn-at__top-level > .xn-at__node { flex: none; width: 348px; padding: 28px 8px 0; }
+.xn-at[data-mode="spread"] .xn-at__top-level > .xn-at__node { flex: none; width: calc(var(--xn-at-card-w) + 16px); padding: 28px 8px 0; }
 .xn-at[data-mode="spread"] .xn-at__top-level > .xn-at__node::before { content: ""; position: absolute; top: 13px; left: 0; right: 0; height: 2px; background: var(--xn-at-link); }
 .xn-at[data-mode="spread"] .xn-at__top-level > .xn-at__node:first-child::before { left: 50%; height: 15px; margin-left: -1px; background: none; border-top: 2px solid var(--xn-at-link); border-left: 2px solid var(--xn-at-link); border-top-left-radius: 12px; }
 .xn-at[data-mode="spread"] .xn-at__top-level > .xn-at__node:last-child::before { right: 50%; height: 15px; margin-right: -1px; background: none; border-top: 2px solid var(--xn-at-link); border-right: 2px solid var(--xn-at-link); border-top-right-radius: 12px; }
@@ -737,20 +812,44 @@ ${stacked('.xn-at[data-mode="stack"] .xn-at__top-level')}
 .xn-at__main:active, .xn-at__fold:active { transform: scale(0.98); }
 /* The spinner only turns while the tree is in view and the page is in front */
 .xn-at:not([data-animate]) .xn-at__spin { animation-play-state: paused; }
+/* motion={false}: nothing moves */
+.xn-at[data-motion="off"], .xn-at[data-motion="off"] *, .xn-at[data-motion="off"] *::before, .xn-at[data-motion="off"] *::after { animation: none !important; transition: none !important; }
 
-/* The look of the reference recording: neutral dark cards, a periwinkle accent, brand marks and tool tiles */
+/* The look of the reference recording: neutral dark cards, a periwinkle accent, brand marks and tool tiles.
+   Every colour is a variable on .xn-at; set any of them to restyle the tree. */
 .xn-at {
   --xn-at-card: #1d1d20;
   --xn-at-raised: #232326;
+  --xn-at-idle: #19191c;
   --xn-at-chip: #2d2d31;
   --xn-at-border: #2a2a2e;
   --xn-at-link: #5a82d6;
   --xn-at-text: #f4f4f6;
   --xn-at-muted: #8f8f98;
+  --xn-at-task: #e6e6ea;
+  --xn-at-icon: #d8d8de;
   --xn-at-accent: #8fa3ff;
   --xn-at-warning: #e9a574;
   --xn-at-critical: #f2917e;
   --xn-at-success: #7fd9a6;
+  --xn-at-running-bg: #2a3156;
+  --xn-at-waiting-bg: #4a3321;
+  --xn-at-done-bg: #1f3a2c;
+  --xn-at-failed-bg: #4a2626;
+  --xn-at-waiting-note: #3f2f20;
+  --xn-at-failed-note: #432424;
+  --xn-at-waiting-border: #6e5636;
+  --xn-at-failed-border: #6e3f3d;
+  --xn-at-avatar-bg: #19191c;
+  --xn-at-tools-bg: #161619;
+  --xn-at-menu-border: #34343a;
+  --xn-at-menu-hover: #2d2d33;
+  --xn-at-shadow: #000a;
+  --xn-at-hover: rgba(255, 255, 255, 0.03);
+  --xn-at-hover-strong: rgba(255, 255, 255, 0.06);
+  --xn-at-spin-track: rgba(143, 163, 255, 0.28);
+  --xn-at-flare: rgba(143, 163, 255, 0.55);
+  --xn-at-card-w: 332px;
 }
 .xn-at__title { display: inline-flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
 .xn-at__title svg { color: var(--xn-at-accent); }
@@ -760,39 +859,39 @@ ${stacked('.xn-at[data-mode="stack"] .xn-at__top-level')}
 .xn-at__menuwrap { position: relative; display: inline-flex; }
 .xn-at__chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 12px; border: 0; border-radius: 9px; font: inherit; font-size: 16px; cursor: pointer; transition: filter 0.15s; }
 .xn-at__chip:hover { filter: brightness(1.2); }
-.xn-at__chip[data-kind="failed"] { background: #4a2626; color: var(--xn-at-critical); }
-.xn-at__chip[data-kind="waiting"] { background: #4a3321; color: var(--xn-at-warning); }
+.xn-at__chip[data-kind="failed"] { background: var(--xn-at-failed-bg); color: var(--xn-at-critical); }
+.xn-at__chip[data-kind="waiting"] { background: var(--xn-at-waiting-bg); color: var(--xn-at-warning); }
 .xn-at__chip[aria-expanded="true"] svg { transform: rotate(180deg); }
 .xn-at__chip svg { transition: transform 0.15s; }
 .xn-at__chip:focus-visible { outline: 2px solid var(--xn-at-accent); outline-offset: 2px; }
-.xn-at__menu { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: max-content; min-width: 260px; max-width: 340px; padding: 6px; border-radius: 14px; background: #232326; border: 1px solid #34343a; box-shadow: 0 18px 50px #000a; animation: xn-at-fade 0.15s ease-out; }
+.xn-at__menu { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: max-content; min-width: 260px; max-width: 340px; padding: 6px; border-radius: 14px; background: var(--xn-at-raised); border: 1px solid var(--xn-at-menu-border); box-shadow: 0 18px 50px var(--xn-at-shadow); animation: xn-at-fade 0.15s ease-out; }
 .xn-at__menu button { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 9px 12px; border: 0; border-radius: 9px; background: transparent; color: var(--xn-at-text); font: inherit; text-align: left; cursor: pointer; }
-.xn-at__menu button:hover, .xn-at__menu button:focus-visible { background: #2d2d33; outline: none; }
+.xn-at__menu button:hover, .xn-at__menu button:focus-visible { background: var(--xn-at-menu-hover); outline: none; }
 .xn-at__menu b { font-size: 15px; font-weight: 600; }
 .xn-at__menu span { font-size: 13px; color: var(--xn-at-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.xn-at__card[data-status="queued"], .xn-at__card[data-status="paused"] { background: #19191c; }
-.xn-at__card[data-status="waiting"] { border-color: #6e5636; }
-.xn-at__card[data-status="failed"] { border-color: #6e3f3d; }
+.xn-at__card[data-status="queued"], .xn-at__card[data-status="paused"] { background: var(--xn-at-idle); }
+.xn-at__card[data-status="waiting"] { border-color: var(--xn-at-waiting-border); }
+.xn-at__card[data-status="failed"] { border-color: var(--xn-at-failed-border); }
 .xn-at__card[data-selected] { background: var(--xn-at-raised); box-shadow: 0 0 0 1px var(--xn-at-accent); }
 .xn-at__card[data-flash]::before { content: ""; position: absolute; inset: -3px; border-radius: 19px; border: 2px solid var(--xn-at-accent); pointer-events: none; animation: xn-at-flash 0.5s ease-in-out 3 both; }
 @keyframes xn-at-flash { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-button.xn-at__main:hover { background: rgba(255, 255, 255, 0.03); }
-.xn-at__avatar { width: 40px; height: 40px; border-radius: 12px; background: #19191c; border: 1px solid #2a2a2e; color: #d8d8de; }
+button.xn-at__main:hover { background: var(--xn-at-hover); }
+.xn-at__avatar { width: 40px; height: 40px; border-radius: 12px; background: var(--xn-at-idle); border: 1px solid var(--xn-at-border); color: var(--xn-at-icon); }
 .xn-at__letter { font-size: 13px; font-weight: 700; }
 .xn-at__name { font-size: 19px; font-weight: 600; }
 .xn-at__model { font-size: 15px; }
 .xn-at__badge { padding: 5px 11px; font-size: 14px; font-weight: 600; background: var(--xn-at-chip); }
-.xn-at__badge[data-status="running"] { background: #2a3156; color: #8fa3ff; }
-.xn-at__badge[data-status="waiting"] { background: #4a3321; color: var(--xn-at-warning); }
-.xn-at__badge[data-status="done"] { background: #1f3a2c; color: var(--xn-at-success); }
-.xn-at__badge[data-status="failed"] { background: #4a2626; color: var(--xn-at-critical); }
-.xn-at__spin { border-color: rgba(143, 163, 255, 0.28); border-top-color: #8fa3ff; }
-.xn-at__task { color: #e6e6ea; font-size: 17px; line-height: 1.5; }
-.xn-at__note[data-status="waiting"] { background: #3f2f20; color: var(--xn-at-warning); }
-.xn-at__note[data-status="failed"] { background: #432424; color: var(--xn-at-critical); }
-.xn-at__tools { display: inline-flex; align-items: center; gap: 1px; padding: 2px; margin-right: 8px; vertical-align: -5px; border-radius: 10px; background: #161619; border: 1px solid #2a2a2e; }
-.xn-at__tool { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border-radius: 7px; background: transparent; color: #d8d8de; font-size: 0; }
+.xn-at__badge[data-status="running"] { background: var(--xn-at-running-bg); color: var(--xn-at-accent); }
+.xn-at__badge[data-status="waiting"] { background: var(--xn-at-waiting-bg); color: var(--xn-at-warning); }
+.xn-at__badge[data-status="done"] { background: var(--xn-at-done-bg); color: var(--xn-at-success); }
+.xn-at__badge[data-status="failed"] { background: var(--xn-at-failed-bg); color: var(--xn-at-critical); }
+.xn-at__spin { border-color: var(--xn-at-spin-track); border-top-color: var(--xn-at-accent); }
+.xn-at__task { color: var(--xn-at-task); font-size: 17px; line-height: 1.5; }
+.xn-at__note[data-status="waiting"] { background: var(--xn-at-waiting-note); color: var(--xn-at-warning); }
+.xn-at__note[data-status="failed"] { background: var(--xn-at-failed-note); color: var(--xn-at-critical); }
+.xn-at__tools { display: inline-flex; align-items: center; gap: 1px; padding: 2px; margin-right: 8px; vertical-align: -5px; border-radius: 10px; background: var(--xn-at-tools-bg); border: 1px solid var(--xn-at-border); }
+.xn-at__tool { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border-radius: 7px; background: transparent; color: var(--xn-at-icon); font-size: 0; }
 .xn-at__tool .xn-at__letter { font-size: 11px; }
 .xn-at__cost { font-weight: 650; }
 .xn-at__fold { color: var(--xn-at-muted); }
@@ -803,14 +902,14 @@ button.xn-at__main:hover { background: rgba(255, 255, 255, 0.03); }
 .xn-at__avatar { flex: none; width: 38px; height: 38px; }
 .xn-at__badge { padding: 4px 9px; font-size: 13px; }
 .xn-at__fold { border: 0; background: transparent; font-size: 16px; }
-.xn-at__fold:hover { background: rgba(255, 255, 255, 0.06); }
+.xn-at__fold:hover { background: var(--xn-at-hover-strong); }
 
 
 /* Motion: an agent that arrives later rises into place and its link draws in; a card whose state changes flares once;
    the header counts bump when they change; chips pop in */
 @keyframes xn-at-draw { from { clip-path: inset(0 0 100% 0); } }
 @keyframes xn-at-drawx { from { clip-path: inset(0 100% 0 0); } }
-@keyframes xn-at-flare { 0% { box-shadow: 0 0 0 0 rgba(143, 163, 255, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(143, 163, 255, 0); } }
+@keyframes xn-at-flare { 0% { box-shadow: 0 0 0 0 var(--xn-at-flare); } 100% { box-shadow: 0 0 0 14px transparent; } }
 @keyframes xn-at-bump { 0% { transform: translateY(5px) scale(0.92); opacity: 0.4; } 100% { transform: none; opacity: 1; } }
 @keyframes xn-at-pop { from { transform: scale(0.8); opacity: 0; } }
 .xn-at__node[data-born] > .xn-at__card { animation: xn-at-rise 480ms cubic-bezier(.22, 1, .36, 1) both; }
@@ -819,11 +918,13 @@ button.xn-at__main:hover { background: rgba(255, 255, 255, 0.03); }
 .xn-at__node[data-born] .xn-at__port { animation: xn-at-pop 360ms 200ms cubic-bezier(.22, 1, .36, 1) both; }
 .xn-at__card[data-flare="1"] { animation: xn-at-flare 800ms ease-out; }
 .xn-at__card[data-flare="0"] { animation: xn-at-flare-b 800ms ease-out; }
-@keyframes xn-at-flare-b { 0% { box-shadow: 0 0 0 0 rgba(143, 163, 255, 0.55); } 100% { box-shadow: 0 0 0 14px rgba(143, 163, 255, 0); } }
+@keyframes xn-at-flare-b { 0% { box-shadow: 0 0 0 0 var(--xn-at-flare); } 100% { box-shadow: 0 0 0 14px transparent; } }
 .xn-at__card { transition: border-color 0.4s, background-color 0.4s, box-shadow 0.4s, transform 160ms cubic-bezier(.22, 1, .36, 1); }
 .xn-at__stats [data-bump] { animation: xn-at-bump 320ms cubic-bezier(.22, 1, .36, 1) both; }
 .xn-at__chip { animation: xn-at-pop 280ms cubic-bezier(.22, 1, .36, 1) both; }
 .xn-at__badge { transition: background-color 0.3s, color 0.3s; }
+
+.xn-at__foot[data-empty] { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .xn-at__node[data-born] > .xn-at__card, .xn-at__node[data-born]::before, .xn-at__node[data-born] .xn-at__port, .xn-at__card[data-flare], .xn-at__stats [data-bump], .xn-at__chip, .xn-at__card[data-flash]::before { animation: none; }
