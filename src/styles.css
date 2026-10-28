@@ -149,7 +149,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .stateNow h3 { margin: 0; font-size: 26px; letter-spacing: -0.03em; }
 .stateNow p { margin: 0; font-size: 18px; color: #c2d3e5; }
 .limitsPanel { display: flex; flex-direction: column; gap: 22px; padding: 24px; border: 1px solid #34475c; border-radius: 16px; background: #131e2b; }
-.planWrap { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 820px) minmax(300px, 420px); gap: 16px; align-items: start; padding-bottom: 4px; }
+.planWrap { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 820px) minmax(300px, 480px); gap: 16px; align-items: start; padding-bottom: 4px; }
 .planCol { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .steerSticky { position: sticky; top: 0; }
 
