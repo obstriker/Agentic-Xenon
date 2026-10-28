@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ledgerSeed, type Agent } from "../data";
+import type { Agent } from "../../shared/contract";
+import { useBackend } from "../api/backend";
 import { StatusPill } from "../StatusPill";
 import { Button } from "../ui/button";
 import { SegmentedControl, type SegmentOption } from "../ui/segmented-control";
@@ -27,19 +28,16 @@ type Props = {
   active: boolean;
   agent: Agent;
   plans: Record<string, PlanStep[]>;
-  patchPlan: (name: string, change: (steps: PlanStep[]) => PlanStep[]) => void;
   onChoose: (index: number) => void;
   onNeeds: () => void;
   onBack: () => void;
   steering: Steering;
 };
 
-export function Live({ active, agent, plans, patchPlan, steering, onChoose, onNeeds, onBack }: Props) {
+export function Live({ active, agent, plans, steering, onChoose, onNeeds, onBack }: Props) {
   const [tab, setTab] = useState<Tab>("flow");
-  // What each agent changed in your systems; an undo marks every change it takes with it
-  const [ledgers, setLedgers] = useState(ledgerSeed);
-  const undoChanges = (name: string, ids: string[]) =>
-    setLedgers((l) => ({ ...l, [name]: l[name].map((c) => (ids.includes(c.id) ? { ...c, undone: true } : c)) }));
+  // What each agent changed in your systems; the server marks every change an undo takes with it
+  const { ledgers, undo, updatePlan } = useBackend();
 
   const steps = plans[agent.name];
   const status = statusOf(agent, steps);
@@ -61,9 +59,9 @@ export function Live({ active, agent, plans, patchPlan, steering, onChoose, onNe
         <TasksTab
           agent={agent}
           steps={steps}
-          onChange={(next) => patchPlan(agent.name, () => next)}
+          onChange={(next) => updatePlan(agent.name, next)}
           changes={ledgers[agent.name]}
-          onUndo={(ids) => undoChanges(agent.name, ids)}
+          onUndo={undo}
           run={steering.runs[agent.name]}
           queue={steering.queues[agent.name] ?? []}
           onQueue={(text) => steering.queue(agent.name, text)}

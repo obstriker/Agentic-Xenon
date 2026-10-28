@@ -49,7 +49,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .agentGrid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .agent { position: relative; border: 1px solid #354257; background: linear-gradient(150deg, #1a2635, #121b28); border-radius: 17px; padding: 20px 21px; text-align: left; color: inherit; display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow: hidden; transition: background 0.2s, border-color 0.2s; }
 .agent:hover, .agent:focus-visible { border-color: #90b5e0; }
-.agent h3 { font-size: 23px; margin: 0; letter-spacing: -0.035em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent h3 { font-size: 23px; margin: 0; letter-spacing: -0.035em; display: flex; align-items: center; min-width: 0; }
+/* The name truncates, not the heading, so the icon's glow can reach outside the heading's box */
+.agent h3 .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .agent .desc { font-size: 17px; color: #c5d2e1; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .agent .minor { font-size: 15px; color: #aabace; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; min-height: 28px; }
 .agent .track + .minor { margin-top: 0; }
@@ -217,3 +219,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .review.tree > .eyebrow, .review.tree > h2, .review.tree > .recorded { margin: 0 30px; }
 .review.tree > .eyebrow { margin-top: 26px; }
 .review.tree > footer { margin-top: 0; }
+
+/* CLI mark and compact team grid */
+.cliIcon { color: #5d6b7c; transition: color .25s, filter .25s; }
+.cliIcon[data-state="waiting"] { color: var(--c); }
+.cliIcon[data-state="working"] { animation: cliPulse 1.8s ease-in-out infinite; }
+@keyframes cliPulse { 0%, 100% { color: #5d6b7c; filter: none; } 50% { color: var(--c); filter: drop-shadow(0 0 7px var(--c)); } }
+@media (prefers-reduced-motion: reduce) { .cliIcon[data-state="working"] { animation: none; color: var(--c); } }
+.cliIcon { display: inline-grid; place-items: center; flex: none; vertical-align: -4px; margin-right: 9px; }
+.cliIcon svg, .cliIcon .cliLogo { width: 100%; height: 100%; display: block; }
+.cliIcon b { font-size: 0.8em; border: 1.5px solid currentColor; border-radius: 50%; width: 100%; height: 100%; display: grid; place-items: center; }
+.teamFit { display: grid; grid-template-rows: auto 1fr; gap: 14px; height: 100%; min-height: 0; padding: 4px 2px 2px; }
+.teamHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #aabace; font-size: 15px; }
+.teamHead b { color: #e8eef6; font-size: 19px; letter-spacing: -0.02em; }
+.teamGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); grid-auto-rows: 1fr; gap: 12px; min-height: 0; }
+.teamTile { border: 1px solid #354257; background: linear-gradient(150deg, #1a2635, #121b28); border-radius: 15px; padding: 14px 16px; color: inherit; text-align: left; display: flex; flex-direction: column; gap: 8px; min-height: 88px; min-width: 0; cursor: pointer; }
+.teamTile[aria-pressed="true"] { border-color: #8fb7e3; box-shadow: 0 0 0 1px #8fb7e3 inset; }
+.teamTile.waiting { border-color: #c9a164; }
+.teamTile h3 { margin: 0; font-size: 19px; letter-spacing: -0.03em; display: flex; align-items: center; min-width: 0; }
+.teamTile h3 span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.teamTile p { margin: 0; font-size: 15px; line-height: 1.4; color: #c5d2e1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.teamTile .row { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; color: #aabace; }

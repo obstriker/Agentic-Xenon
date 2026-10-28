@@ -1,0 +1,779 @@
+{
+ "agents": [
+  {
+   "name": "Market landscape",
+   "desc": "Mapping competitors and emerging product shifts",
+   "step": "Cross-checking pricing models",
+   "cost": 3.84,
+   "progress": 62,
+   "status": "working",
+   "tasks": [
+    "Scope research questions",
+    "Collect competitor materials",
+    "Verify pricing and market segments",
+    "Synthesize opportunity landscape"
+   ],
+   "findings": [
+    "Three competitors are introducing usage-based pricing",
+    "Mid-market demand is shifting toward bundled workflows",
+    "Enterprise procurement remains the biggest friction point"
+   ]
+  },
+  {
+   "name": "Protocol research",
+   "desc": "Evaluating implementation patterns and security assumptions",
+   "step": "Testing protocol assumptions",
+   "cost": 2.17,
+   "progress": 43,
+   "status": "working",
+   "tasks": [
+    "Collect protocol documentation",
+    "Compare implementation patterns",
+    "Investigate security assumptions",
+    "Publish technical assessment"
+   ],
+   "findings": [
+    "Handshake compatibility varies by implementation",
+    "Two specifications disagree on timeout behavior"
+   ]
+  },
+  {
+   "name": "Dataset synthesis",
+   "desc": "Comparing public datasets and source reliability",
+   "step": "Waiting for dataset permission",
+   "cost": 1.62,
+   "progress": 55,
+   "status": "waiting",
+   "tasks": [
+    "Find candidate data sources",
+    "Rate source reliability",
+    "Request gated dataset",
+    "Build synthesis"
+   ],
+   "findings": [
+    "Seven candidate datasets identified",
+    "Two datasets require additional permission"
+   ]
+  },
+  {
+   "name": "Literature review",
+   "desc": "Extracting evidence across academic and industry publications",
+   "step": "Grouping evidence clusters",
+   "cost": 5.31,
+   "progress": 78,
+   "status": "working",
+   "tasks": [
+    "Search publications",
+    "Screen relevance",
+    "Extract key evidence",
+    "Draft cited review"
+   ],
+   "findings": [
+    "Consistent support for the primary hypothesis",
+    "Source quality varies across three study groups"
+   ]
+  },
+  {
+   "name": "Risk assessment",
+   "desc": "Identifying unresolved assumptions and potential failure modes",
+   "step": "Waiting for risk tolerance",
+   "cost": 0.98,
+   "progress": 35,
+   "status": "waiting",
+   "tasks": [
+    "Catalogue assumptions",
+    "Estimate impact",
+    "Ask for risk tolerance",
+    "Prioritize mitigations"
+   ],
+   "findings": [
+    "Two risks need a human policy decision",
+    "The primary dependency has no fallback"
+   ]
+  },
+  {
+   "name": "Executive briefing",
+   "desc": "Turning research findings into a decision-ready summary",
+   "step": "Drafting key takeaways",
+   "cost": 1.48,
+   "progress": 82,
+   "status": "working",
+   "tasks": [
+    "Collect source findings",
+    "Draft executive summary",
+    "Check all citations",
+    "Prepare deliverable"
+   ],
+   "findings": [
+    "Five themes have emerged across the research"
+   ]
+  }
+ ],
+ "taskMeta": {
+  "Scope research questions": {
+   "detail": "Define what to compare and why",
+   "tool": "scope.plan"
+  },
+  "Collect competitor materials": {
+   "detail": "Pricing pages, filings and announcements",
+   "tool": "web.search"
+  },
+  "Verify pricing and market segments": {
+   "detail": "Cross-check prices against two sources",
+   "tool": "sheets.compare"
+  },
+  "Synthesize opportunity landscape": {
+   "detail": "One-page map of gaps and openings",
+   "tool": "docs.write"
+  },
+  "Collect protocol documentation": {
+   "detail": "Specs, RFCs and vendor notes",
+   "tool": "web.fetch"
+  },
+  "Compare implementation patterns": {
+   "detail": "Handshake, retries and timeouts",
+   "tool": "code.analyze"
+  },
+  "Investigate security assumptions": {
+   "detail": "Threat model against each pattern",
+   "tool": "sandbox.run"
+  },
+  "Publish technical assessment": {
+   "detail": "Findings with open questions",
+   "tool": "docs.write"
+  },
+  "Find candidate data sources": {
+   "detail": "Public and licensed datasets",
+   "tool": "web.search"
+  },
+  "Rate source reliability": {
+   "detail": "Provenance, freshness and coverage",
+   "tool": "score.sources"
+  },
+  "Request gated dataset": {
+   "detail": "Needs your approval to read",
+   "tool": "data.request"
+  },
+  "Build synthesis": {
+   "detail": "Merge sources into one table",
+   "tool": "data.merge"
+  },
+  "Search publications": {
+   "detail": "Academic and industry papers",
+   "tool": "scholar.search"
+  },
+  "Screen relevance": {
+   "detail": "Keep papers that match the question",
+   "tool": "screen.filter"
+  },
+  "Extract key evidence": {
+   "detail": "Claims, sample sizes and effects",
+   "tool": "pdf.extract"
+  },
+  "Draft cited review": {
+   "detail": "Every claim linked to its source",
+   "tool": "docs.write"
+  },
+  "Catalogue assumptions": {
+   "detail": "List what the plan relies on",
+   "tool": "notes.collect"
+  },
+  "Estimate impact": {
+   "detail": "Likelihood and cost per assumption",
+   "tool": "model.estimate"
+  },
+  "Ask for risk tolerance": {
+   "detail": "Needs your policy decision",
+   "tool": "human.ask"
+  },
+  "Prioritize mitigations": {
+   "detail": "Rank fixes by impact",
+   "tool": "docs.write"
+  },
+  "Collect source findings": {
+   "detail": "Pull results from all agents",
+   "tool": "findings.read"
+  },
+  "Draft executive summary": {
+   "detail": "One page, decisions first",
+   "tool": "docs.write"
+  },
+  "Check all citations": {
+   "detail": "Every figure traced to a source",
+   "tool": "citations.verify"
+  },
+  "Prepare deliverable": {
+   "detail": "Export the final briefing",
+   "tool": "slides.create"
+  }
+ },
+ "requests": [
+  {
+   "name": "Dataset access",
+   "agent": "Dataset synthesis",
+   "question": "May I read the licensed benchmark dataset for this research?",
+   "details": "Access is limited to read-only retrieval. No data will be published or shared outside this workspace.",
+   "type": "choice",
+   "options": [
+    "Allow once",
+    "Allow for this mission",
+    "Deny"
+   ],
+   "approval": {
+    "risk": "medium",
+    "preview": [
+     {
+      "label": "Dataset",
+      "value": "Licensed benchmark dataset"
+     },
+     {
+      "label": "Access",
+      "value": "Read-only retrieval"
+     },
+     {
+      "label": "Shared outside workspace",
+      "value": "No"
+     }
+    ]
+   }
+  },
+  {
+   "name": "Research direction",
+   "agent": "Risk assessment",
+   "question": "Which risk profile should the analysis optimize for?",
+   "details": "This determines the weighting of candidate failure modes and mitigation proposals.",
+   "type": "choice",
+   "options": [
+    "Conservative",
+    "Balanced",
+    "Exploratory"
+   ]
+  },
+  {
+   "name": "Clarify scope",
+   "agent": "Market landscape",
+   "question": "Which geographic market should I prioritize?",
+   "details": "You can write a specific region or customer segment. The agent will apply it to the remaining research.",
+   "type": "text"
+  },
+  {
+   "name": "Incident response",
+   "agent": "Incident agent",
+   "question": "Checkout errors jumped to 18% after deploy #482 – what should I do?",
+   "details": "2,140 errors in 12 minutes · about $3.2k in orders an hour at risk.",
+   "type": "tree",
+   "tree": {
+    "id": "incident",
+    "agent": {
+     "name": "Incident agent",
+     "model": "Opus 5.5"
+    },
+    "risk": "high",
+    "question": "Checkout errors jumped to 18% after deploy #482 – what should I do?",
+    "details": "2,140 errors in 12 minutes · about $3.2k in orders an hour at risk.",
+    "options": [
+     {
+      "id": "rollback",
+      "label": "Roll back to #481",
+      "agentPick": true,
+      "followUp": {
+       "question": "Tell customers about it?",
+       "choices": [
+        {
+         "id": "status",
+         "title": "Post on the status page",
+         "detail": "Public · updates every 15 min",
+         "agentPick": true
+        },
+        {
+         "id": "team",
+         "title": "Only tell the team",
+         "detail": "#incidents only · nothing public"
+        }
+       ]
+      }
+     },
+     {
+      "id": "hotfix",
+      "label": "Ship a hotfix",
+      "followUp": {
+       "question": "Wait for the test run?",
+       "choices": [
+        {
+         "id": "now",
+         "title": "Ship right away",
+         "flag": "Skips 1,284 tests"
+        },
+        {
+         "id": "after",
+         "title": "After the tests",
+         "detail": "14 min · errors keep coming"
+        }
+       ]
+      }
+     },
+     {
+      "id": "flag",
+      "label": "Turn the flag off",
+      "followUp": {
+       "choices": [
+        {
+         "id": "off",
+         "title": "New checkout off for 30%",
+         "detail": "The old one takes over"
+        }
+       ]
+      }
+     },
+     {
+      "id": "other",
+      "label": "Other...",
+      "other": true
+     }
+    ]
+   }
+  },
+  {
+   "name": "Renewal offer",
+   "agent": "Sales agent",
+   "question": "Acme wants 25% off their $84k renewal or they'll switch – how should I respond?",
+   "details": "Renewal in 9 days · 212 seats · they asked twice on yesterday's call.",
+   "type": "tree",
+   "tree": {
+    "id": "renewal",
+    "agent": {
+     "name": "Sales agent",
+     "model": "GPT-6 Sol"
+    },
+    "risk": "medium",
+    "question": "Acme wants 25% off their $84k renewal or they'll switch – how should I respond?",
+    "details": "Renewal in 9 days · 212 seats · they asked twice on yesterday's call.",
+    "options": [
+     {
+      "id": "offer15",
+      "label": "Offer 15% instead",
+      "agentPick": true,
+      "followUp": {
+       "question": "Tie it to a longer contract?",
+       "choices": [
+        {
+         "id": "two",
+         "title": "Only with 2 years",
+         "detail": "$71.4k a year until 2028",
+         "agentPick": true
+        },
+        {
+         "id": "one",
+         "title": "For one year",
+         "detail": "$71.4k renews at full price"
+        }
+       ]
+      }
+     },
+     {
+      "id": "vp",
+      "label": "Ask the VP",
+      "followUp": {
+       "question": "What should I send along?",
+       "choices": [
+        {
+         "id": "notes",
+         "title": "The call notes",
+         "detail": "Summary of yesterday's call"
+        },
+        {
+         "id": "margin",
+         "title": "Usage and margin",
+         "flag": "Margin drops to 41%"
+        }
+       ]
+      }
+     },
+     {
+      "id": "accept",
+      "label": "Accept 25%",
+      "followUp": {
+       "choices": [
+        {
+         "id": "signoff",
+         "title": "$63k a year · needs sign-off"
+        }
+       ]
+      }
+     },
+     {
+      "id": "other",
+      "label": "Other...",
+      "other": true
+     }
+    ]
+   }
+  }
+ ],
+ "quotas": [
+  {
+   "name": "Claude",
+   "sub": "Team subscription",
+   "reset": "Reset in 2h 18m",
+   "segments": [
+    {
+     "label": "Research",
+     "value": 38,
+     "color": "#9dc6f7"
+    },
+    {
+     "label": "Briefings",
+     "value": 21,
+     "color": "#6fa3de"
+    },
+    {
+     "label": "Other",
+     "value": 14,
+     "color": "#4a78ac"
+    }
+   ],
+   "daily": [
+    40,
+    52,
+    47,
+    61,
+    58,
+    66,
+    73
+   ]
+  },
+  {
+   "name": "Codex",
+   "sub": "Usage allowance",
+   "reset": "Reset in 4h 05m",
+   "segments": [
+    {
+     "label": "Code",
+     "value": 52,
+     "color": "#f0bf84"
+    },
+    {
+     "label": "Review",
+     "value": 27,
+     "color": "#d99a55"
+    },
+    {
+     "label": "Other",
+     "value": 12,
+     "color": "#a8723c"
+    }
+   ],
+   "daily": [
+    55,
+    62,
+    70,
+    74,
+    81,
+    86,
+    91
+   ],
+   "actionLabel": "Shift load to Gemini"
+  },
+  {
+   "name": "Gemini",
+   "sub": "Daily quota",
+   "reset": "Reset in 17h 41m",
+   "segments": [
+    {
+     "label": "Search",
+     "value": 17,
+     "color": "#91ddbd"
+    },
+    {
+     "label": "Other",
+     "value": 10,
+     "color": "#5fb592"
+    }
+   ],
+   "daily": [
+    20,
+    18,
+    25,
+    22,
+    30,
+    24,
+    27
+   ]
+  }
+ ],
+ "ledger": {
+  "Market landscape": [
+   {
+    "id": "a1",
+    "system": "Google Sheets",
+    "target": "Competitor pricing",
+    "action": "created",
+    "before": "—",
+    "after": "New sheet · 12 rows",
+    "at": "9m ago"
+   },
+   {
+    "id": "a2",
+    "system": "Google Sheets",
+    "target": "Competitor pricing › Plans",
+    "action": "updated",
+    "before": "3 plans",
+    "after": "5 plans, 2 usage-based",
+    "at": "6m ago",
+    "dependsOn": [
+     "a1"
+    ]
+   },
+   {
+    "id": "a3",
+    "system": "Slack",
+    "target": "#research",
+    "action": "sent",
+    "before": "—",
+    "after": "Posted the pricing recap",
+    "at": "4m ago",
+    "dependsOn": [
+     "a2"
+    ],
+    "irreversible": true
+   },
+   {
+    "id": "a4",
+    "system": "Notion",
+    "target": "Q2 pricing notes",
+    "action": "archived",
+    "before": "Active page",
+    "after": "Archived",
+    "at": "3m ago"
+   }
+  ],
+  "Protocol research": [
+   {
+    "id": "b1",
+    "system": "GitHub",
+    "target": "protocol-notes/handshake.md",
+    "action": "created",
+    "before": "—",
+    "after": "New file · 84 lines",
+    "at": "12m ago"
+   },
+   {
+    "id": "b2",
+    "system": "GitHub",
+    "target": "protocol-notes/handshake.md",
+    "action": "updated",
+    "before": "84 lines",
+    "after": "112 lines, timeout table added",
+    "at": "8m ago",
+    "dependsOn": [
+     "b1"
+    ]
+   },
+   {
+    "id": "b3",
+    "system": "Linear",
+    "target": "SEC-142 · Timeout mismatch",
+    "action": "created",
+    "before": "—",
+    "after": "Ticket opened, unassigned",
+    "at": "5m ago",
+    "dependsOn": [
+     "b2"
+    ]
+   }
+  ],
+  "Dataset synthesis": [
+   {
+    "id": "c1",
+    "system": "Google Drive",
+    "target": "Datasets/candidates.csv",
+    "action": "created",
+    "before": "—",
+    "after": "New file · 7 rows",
+    "at": "11m ago"
+   },
+   {
+    "id": "c2",
+    "system": "Google Drive",
+    "target": "Datasets/candidates.csv",
+    "action": "updated",
+    "before": "7 rows",
+    "after": "7 rows + reliability score",
+    "at": "7m ago",
+    "dependsOn": [
+     "c1"
+    ]
+   }
+  ],
+  "Literature review": [
+   {
+    "id": "d1",
+    "system": "Zotero",
+    "target": "Review library",
+    "action": "updated",
+    "before": "0 items",
+    "after": "38 items",
+    "at": "14m ago"
+   },
+   {
+    "id": "d2",
+    "system": "Zotero",
+    "target": "Review library › Screened",
+    "action": "updated",
+    "before": "38 items",
+    "after": "21 kept, 17 dropped",
+    "at": "9m ago",
+    "dependsOn": [
+     "d1"
+    ]
+   },
+   {
+    "id": "d3",
+    "system": "Google Docs",
+    "target": "Draft review",
+    "action": "created",
+    "before": "—",
+    "after": "Outline · 4 sections",
+    "at": "4m ago",
+    "dependsOn": [
+     "d2"
+    ]
+   }
+  ],
+  "Risk assessment": [
+   {
+    "id": "e1",
+    "system": "Notion",
+    "target": "Assumptions register",
+    "action": "created",
+    "before": "—",
+    "after": "14 assumptions",
+    "at": "10m ago"
+   },
+   {
+    "id": "e2",
+    "system": "Notion",
+    "target": "Assumptions register",
+    "action": "updated",
+    "before": "14 assumptions",
+    "after": "14 assumptions, impact scored",
+    "at": "5m ago",
+    "dependsOn": [
+     "e1"
+    ]
+   }
+  ],
+  "Executive briefing": [
+   {
+    "id": "f1",
+    "system": "Google Docs",
+    "target": "Executive summary",
+    "action": "created",
+    "before": "—",
+    "after": "1-page draft",
+    "at": "13m ago"
+   },
+   {
+    "id": "f2",
+    "system": "Google Docs",
+    "target": "Executive summary",
+    "action": "updated",
+    "before": "1-page draft",
+    "after": "Citations linked",
+    "at": "7m ago",
+    "dependsOn": [
+     "f1"
+    ]
+   },
+   {
+    "id": "f3",
+    "system": "Email",
+    "target": "Leadership list",
+    "action": "sent",
+    "before": "—",
+    "after": "Summary sent to 6 people",
+    "at": "2m ago",
+    "dependsOn": [
+     "f2"
+    ],
+    "irreversible": true
+   }
+  ]
+ },
+ "limits": {
+  "Market landscape": {
+   "budget": 6,
+   "context": {
+    "used": 98000,
+    "max": 128000
+   },
+   "calls": {
+    "used": 142,
+    "max": 200
+   }
+  },
+  "Protocol research": {
+   "budget": 6,
+   "context": {
+    "used": 54000,
+    "max": 128000
+   },
+   "calls": {
+    "used": 96,
+    "max": 200
+   }
+  },
+  "Dataset synthesis": {
+   "budget": 4,
+   "context": {
+    "used": 38000,
+    "max": 128000
+   },
+   "calls": {
+    "used": 61,
+    "max": 200
+   }
+  },
+  "Literature review": {
+   "budget": 6,
+   "context": {
+    "used": 121000,
+    "max": 128000
+   },
+   "calls": {
+    "used": 177,
+    "max": 200
+   }
+  },
+  "Risk assessment": {
+   "budget": 4,
+   "context": {
+    "used": 22000,
+    "max": 128000
+   },
+   "calls": {
+    "used": 30,
+    "max": 200
+   }
+  },
+  "Executive briefing": {
+   "budget": 3,
+   "context": {
+    "used": 61000,
+    "max": 128000
+   },
+   "calls": {
+    "used": 88,
+    "max": 200
+   }
+  }
+ },
+ "models": {
+  "Market landscape": "Sonnet 5.5",
+  "Protocol research": "GPT-6 Sol",
+  "Dataset synthesis": "Gemini 3.8 Pro",
+  "Literature review": "Sonnet 5.5",
+  "Risk assessment": "Opus 5.5",
+  "Executive briefing": "Sonnet 5.5"
+ }
+}

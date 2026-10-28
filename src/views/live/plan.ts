@@ -1,22 +1,6 @@
-import { doneTasks, taskMeta, type Agent, type AgentStatus } from "../../data";
+import type { Agent, AgentStatus } from "../../../shared/contract";
 import type { PlanStep } from "../../ui-xenon/agent-plan";
 import type { Run } from "./useSteering";
-
-/** The plan an agent starts with: finished steps, the one running (or waiting on you), then the queue */
-export const seedPlan = (a: Agent): PlanStep[] => {
-  const done = doneTasks(a);
-  return a.tasks.map((label, j) => ({
-    id: `${a.name}-${j}`,
-    label,
-    ...taskMeta[label],
-    status: j < done ? "done" : j === done ? (a.status === "waiting" ? "waiting" : "running") : "queued",
-    duration: j < done ? 1100 + ((j * 7 + a.name.length) % 9) * 130 : undefined,
-    startedAt: j === done && a.status !== "waiting" ? Date.now() - 2500 : undefined,
-  }));
-};
-
-/** Mock: how long a running step takes before the agent moves on – 40 to 72 seconds, steady per step */
-export const stepMs = (label: string) => 40_000 + (label.length % 5) * 8_000;
 
 export const doneSteps = (steps: PlanStep[]) => steps.filter((s) => s.status === "done").length;
 
@@ -67,8 +51,5 @@ export const summarizeRun = (steps: PlanStep[], run: Run): RunSummary => {
   return { status, label: RUN_LABELS[status], currentStep: status === "done" || status === "empty" ? undefined : current };
 };
 
-/** Steps finished since the page loaded – what makes the sample figures (spend, tokens, calls) grow */
-export const stepsSinceSeed = (a: Agent, steps: PlanStep[]) => Math.max(doneSteps(steps) - doneTasks(a), 0);
-
-/** Spend so far: the agent's own figure plus a sample $0.35 for every step finished since */
-export const costOf = (a: Agent, steps: PlanStep[]) => a.cost + 0.35 * stepsSinceSeed(a, steps);
+/** Spend so far. The server adds to the agent's own figure as steps finish. */
+export const costOf = (a: Agent, _steps?: PlanStep[]) => a.cost;

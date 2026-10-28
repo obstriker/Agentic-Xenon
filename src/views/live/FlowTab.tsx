@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { agents, graphLinks, graphTools, usd, type Agent } from "../../data";
+import { graphLinks, graphTools, usd } from "../../data";
+import type { Agent } from "../../../shared/contract";
+import { useBackend } from "../../api/backend";
 import { StatusPill } from "../../StatusPill";
 import { Button } from "../../ui/button";
 import { GridBackground } from "../../ui/grid-background";
@@ -21,11 +23,13 @@ type Props = {
 };
 
 export function FlowTab({ agent, plans, onChoose, onOpenPlan, onNeeds }: Props) {
+  const { agents } = useBackend();
   // The selected node: the chosen agent, the coordinator, or a tool
   const [sel, setSel] = useState(agent.name);
   useEffect(() => setSel(agent.name), [agent.name]);
 
   const waiting = agents.filter((a) => a.status === "waiting").length;
+  const working = agents.filter((a) => a.status === "working").length;
   const tool = graphTools.find((t) => t.id === sel);
 
   const select = (id: string) => {
@@ -39,7 +43,7 @@ export function FlowTab({ agent, plans, onChoose, onOpenPlan, onNeeds }: Props) 
       <GridBackground className="panel graphPanel" size={44} speed={8} fade={85} reveal={false}>
         <div className="graphLabel">LIVE NETWORK · EVERY PULSE IS A TOOL CALL</div>
         <span className="liveBadge">
-          ● {agents.length - waiting} working · {waiting} need you
+          ● {working} working · {agents.length - working - waiting} idle · {waiting} need you
         </span>
         <AgentGraph
           hub="Jarvis"
@@ -74,7 +78,7 @@ function AgentInspector({ agent, steps, onOpenPlan, onNeeds }: { agent: Agent; s
       <div className="inspectorBody">
         <div className="eyebrow">AGENT</div>
         <h2>{agent.name}</h2>
-        <StatusPill status={waiting ? "waiting" : "working"} label={waiting ? "NEEDS YOU" : "IN PROGRESS"} />
+        <StatusPill status={agent.status} label={agent.status === "waiting" ? "NEEDS YOU" : agent.status === "done" ? (steps.length ? "COMPLETE" : "IDLE") : "IN PROGRESS"} />
         <p>{agent.desc}</p>
         <div className="metric">
           <span>Active task</span>
@@ -157,6 +161,7 @@ function ToolInspector({ id, label, onSelectAgent }: { id: string; label: string
 }
 
 function HubInspector({ waiting, plans, onNeeds }: { waiting: number; plans: Record<string, PlanStep[]>; onNeeds: () => void }) {
+  const { agents } = useBackend();
   const spend = agents.reduce((sum, a) => sum + costOf(a, plans[a.name]), 0);
 
   return (

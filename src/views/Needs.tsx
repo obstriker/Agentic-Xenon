@@ -1,23 +1,26 @@
 import { ApprovalCard } from "../ui-xenon/approval-card";
 import { DecisionTree } from "../ui-xenon/decision-tree";
-import { useState, type Dispatch, type SetStateAction } from "react";
-import { requests, type Request } from "../data";
+import { useState } from "react";
+import type { HumanRequest } from "../../shared/contract";
+import { useBackend } from "../api/backend";
+import { decisionTrees } from "./needs-trees";
 import { Button } from "../ui/button";
 import { SegmentedControl } from "../ui/segmented-control";
 
 type Props = {
   active: boolean;
-  responses: Record<number, string>;
-  setResponses: Dispatch<SetStateAction<Record<number, string>>>;
   toast: (text: string) => void;
 };
 
-export function Needs({ active, responses, setResponses, toast }: Props) {
+export function Needs({ active, toast }: Props) {
+  const { requests, answer, reopen } = useBackend();
   const [open, setOpen] = useState(0);
-  const remaining = requests.filter((_, i) => !responses[i]).length;
+  const remaining = requests.filter((r) => !r.answer).length;
+  // Requests come and go with the agents, so keep the selection inside the list
+  const at = Math.min(open, requests.length - 1);
 
   const respond = (reply: string) => {
-    setResponses((r) => ({ ...r, [open]: reply }));
+    answer(requests[at].id, reply);
     toast("Response recorded · demonstration");
   };
 
@@ -30,14 +33,14 @@ export function Needs({ active, responses, setResponses, toast }: Props) {
       <div className="inbox">
         <div className="requests">
           {requests.map((r, i) => (
-            <button key={r.name} className={`request${open === i ? " active" : ""}${responses[i] ? " resolved" : ""}`} onClick={() => setOpen(i)}>
+            <button key={r.id} className={`request${at === i ? " active" : ""}${r.answer ? " resolved" : ""}`} onClick={() => setOpen(i)}>
               <span className="reqmark" aria-hidden="true">
-                {responses[i] ? "✓" : "◇"}
+                {r.answer ? "✓" : "◇"}
               </span>
               <div>
                 <h3>{r.name}</h3>
                 <p>
-                  {r.agent} · {responses[i] ? "Resolved" : "Waiting for you"}
+                  {r.agent} · {r.answer ? "Resolved" : "Waiting for you"}
                 </p>
               </div>
               <span className="reqarrow" aria-hidden="true">
@@ -47,22 +50,29 @@ export function Needs({ active, responses, setResponses, toast }: Props) {
           ))}
         </div>
         {/* keyed so a half-typed answer never leaks into another request */}
+        {requests.length === 0 ? (
+          <div className="panel review">
+            <h2>Nothing needs you</h2>
+            <p>No agent is waiting for a decision. When one is blocked on an approval, it shows up here.</p>
+          </div>
+        ) : (
         <Review
-          key={open}
-          request={requests[open]}
-          response={responses[open]}
+          key={requests[at].id}
+          request={requests[at]}
+          response={requests[at].answer?.value}
           onRespond={respond}
-          onChange={() => setResponses(({ [open]: _gone, ...rest }) => rest)}
+          onChange={() => reopen(requests[at].id)}
           onDefer={() => setOpen((o) => (o + 1) % requests.length)}
           toast={toast}
         />
+        )}
       </div>
     </section>
   );
 }
 
 type ReviewProps = {
-  request: Request;
+  request: HumanRequest;
   response?: string;
   onRespond: (reply: string) => void;
   onChange: () => void;
@@ -129,7 +139,7 @@ function Review({ request: r, response, onRespond, onChange, onDefer, toast }: R
           </>
         ) : (
           <>
-            <DecisionTree compact decisions={[r.tree]} onResolve={(a) => {
+            <DecisionTree compact decisions={[decisionTrees.find((t) => t.id === r.tree.id) ?? r.tree]} onResolve={(a) => {
                 const reply = a.choice ? `${a.option.label} → ${a.choice.title}` : a.option.label;
                 // let the tree show "Approved · running" before the panel switches to the recorded line
                 setTimeout(() => onRespond(reply), 1100);

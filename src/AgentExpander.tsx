@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type RefObject } from "react";
-import { agents, usd } from "./data";
+import { usd } from "./data";
+import { useBackend } from "./api/backend";
 import { Button } from "./ui/button";
 import { ThinkingLoader } from "./ui/thinking-loader";
 import { NumberTicker } from "./ui/number-ticker";
@@ -25,6 +26,7 @@ const px = (n: number) => `${n}px`;
 /** A card that grows out of the agent tile it was opened from. */
 export function AgentExpander({ state, plans, host, onClose, onDone, onRun, onRespond }: Props) {
   const el = useRef<HTMLDivElement>(null);
+  const { agents } = useBackend();
   const agent = agents[state.index];
   const steps = plans[agent.name];
   const done = doneSteps(steps);
@@ -46,7 +48,9 @@ export function AgentExpander({ state, plans, host, onClose, onDone, onRun, onRe
     Object.assign(node.style, { top: px(top), height: px(height) });
     if (reduced) return;
     // Start/end colours match the tile and the settled dialog so the morph never flashes a different colour
-    const [from, to] = status === "waiting" ? ["#f2cfa6", "#f2cfa6"] : ["#172232", "#f3f6fb"];
+    // The settled colour is read from the CSS, not repeated here, so the fade can never end on a different one
+    const settled = getComputedStyle(node).backgroundColor;
+    const [from, to] = status === "waiting" ? [settled, settled] : ["#172232", settled];
     node.animate(
       [
         { left: px(r.left - m.left), top: px(r.top - m.top), width: px(r.width), height: px(r.height) },
@@ -123,7 +127,7 @@ export function AgentExpander({ state, plans, host, onClose, onDone, onRun, onRe
             </p>
           ) : status === "done" ? (
             <p>
-              <strong>All steps finished</strong>
+              <strong>{steps.length ? "All steps finished" : "Idle"}</strong>
               <br />
               The run is complete.
             </p>
@@ -133,9 +137,11 @@ export function AgentExpander({ state, plans, host, onClose, onDone, onRun, onRe
               <p>The run is progressing autonomously.</p>
             </>
           )}
-          <p>
-            {progressOf(agent, steps)}% of known steps · <NumberTicker value={costOf(agent, steps)} format={usd} /> spent
-          </p>
+          {steps.length > 0 && (
+            <p>
+              {progressOf(agent, steps)}% of known steps · <NumberTicker value={costOf(agent, steps)} format={usd} /> spent
+            </p>
+          )}
           <div className="exActions">
             <Button size="lg" onClick={onRun} iconRight={<span aria-hidden="true">↗</span>}>
               See live run

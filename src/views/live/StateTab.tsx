@@ -1,18 +1,16 @@
-import { agentLimits, usd, type Agent } from "../../data";
+import { usd } from "../../data";
+import type { Agent } from "../../../shared/contract";
 import type { PlanStep } from "../../ui-xenon/agent-plan";
 import { StatusPill } from "../../StatusPill";
 import { Button } from "../../ui/button";
 import { NumberTicker } from "../../ui/number-ticker";
 import { ThinkingLoader } from "../../ui/thinking-loader";
 import { LimitMeter } from "../../ui-xenon/limit-meter";
-import { costOf, progressOf, statusOf, stepsSinceSeed } from "./plan";
+import { costOf, progressOf, statusOf } from "./plan";
 
 const money = new Intl.NumberFormat("en-US", usd);
 const formatMoney = (n: number) => money.format(n);
 
-// Sample growth per step finished since the page loaded
-const TOKENS_PER_STEP = 6_000;
-const CALLS_PER_STEP = 14;
 
 type Props = { agent: Agent; steps: PlanStep[]; onNeeds: () => void };
 
@@ -20,8 +18,7 @@ export function StateTab({ agent, steps, onNeeds }: Props) {
   const status = statusOf(agent, steps);
   const waiting = status === "waiting";
   const done = steps.filter((s) => s.status === "done").length;
-  const limits = agentLimits[agent.name];
-  const grown = stepsSinceSeed(agent, steps);
+  const limits = agent.limits;
   const spend = costOf(agent, steps);
 
   return (
@@ -58,7 +55,7 @@ export function StateTab({ agent, steps, onNeeds }: Props) {
 
       <section className="stateNow">
         <div className="eyebrow">{status === "done" ? "RUN COMPLETE" : "RIGHT NOW"}</div>
-        <h3>{status === "done" ? "All steps finished" : agent.step}</h3>
+        <h3>{status === "done" ? (steps.length ? "All steps finished" : "Idle") : agent.step}</h3>
         {waiting ? (
           <p>The agent is paused until you answer.</p>
         ) : status === "done" ? (
@@ -73,12 +70,14 @@ export function StateTab({ agent, steps, onNeeds }: Props) {
         )}
       </section>
 
+      {limits && (
       <section className="limitsPanel" aria-label="Limits">
         <div className="eyebrow">LIMITS · SAMPLE DATA</div>
         <LimitMeter label="Budget" value={spend} max={limits.budget} format={formatMoney} thresholds={{ warning: 0.8, critical: 0.95 }} />
-        <LimitMeter label="Context window" value={limits.context.used + grown * TOKENS_PER_STEP} max={limits.context.max} unit="tokens" />
-        <LimitMeter label="Tool calls" value={limits.calls.used + grown * CALLS_PER_STEP} max={limits.calls.max} unit="calls" />
+        <LimitMeter label="Context window" value={limits.context.used} max={limits.context.max} unit="tokens" />
+        <LimitMeter label="Tool calls" value={limits.calls.used} max={limits.calls.max} unit="calls" />
       </section>
+      )}
     </div>
   );
 }

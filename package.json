@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "api": "node server/index.ts",
+    "seed": "node scripts/export-seed.mjs",
+    "dev:all": "node server/index.ts & vite"
   },
   "dependencies": {
     "react": "^19.3.1",

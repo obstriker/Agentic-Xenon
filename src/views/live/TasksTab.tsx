@@ -1,4 +1,4 @@
-import type { Agent } from "../../data";
+import type { Agent } from "../../../shared/contract";
 import { AgentLedger, type LedgerChange } from "../../ui-xenon/agent-ledger";
 import { AgentPlan, type PlanStep } from "../../ui-xenon/agent-plan";
 import { AgentSteering, type SteerNote, type SteerStep } from "../../ui-xenon/agent-steering";

@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { agents, requests } from "./data";
+import { useBackend } from "./api/backend";
 import { AgentExpander, type ExpandState } from "./AgentExpander";
 import { Command } from "./views/Command";
 import { Live } from "./views/Live";
 import { Needs } from "./views/Needs";
 import { Monitor } from "./views/Monitor";
-import { seedPlan } from "./views/live/plan";
-import { useSteering } from "./views/live/useSteering";
-import type { PlanStep } from "./ui-xenon/agent-plan";
 
 export type View = "command" | "needs" | "live" | "monitor";
 
@@ -55,20 +52,18 @@ export function App() {
   const [expand, setExpand] = useState<ExpandState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef(0);
-  const [responses, setResponses] = useState<Record<number, string>>({});
 
-  // Every agent's plan and run live here, so the cards, the dialog and the live view agree on where each stands
-  const [plans, setPlans] = useState<Record<string, PlanStep[]>>(() => Object.fromEntries(agents.map((a) => [a.name, seedPlan(a)])));
-  const patchPlan = (name: string, change: (steps: PlanStep[]) => PlanStep[]) => setPlans((p) => ({ ...p, [name]: change(p[name]) }));
-  const steering = useSteering(plans, patchPlan);
-
-  const pending = requests.filter((_, i) => !responses[i]).length;
+  // Every agent's plan and run come from the server, so the cards, the dialog and the live view agree on where each stands
+  const { agents, plans, steering, requests, onError } = useBackend();
+  const pending = requests.filter((r) => !r.answer).length;
 
   const showToast = useCallback((text: string) => {
     window.clearTimeout(toastTimer.current);
     setToast(text);
     toastTimer.current = window.setTimeout(() => setToast(null), 2600);
   }, []);
+
+  useEffect(() => onError(showToast), [onError, showToast]);
 
   const go = (v: View) => {
     setExpand(null);
@@ -134,13 +129,12 @@ export function App() {
             active={view === "live"}
             agent={agents[chosen]}
             plans={plans}
-            patchPlan={patchPlan}
             steering={steering}
             onChoose={setChosen}
             onNeeds={() => go("needs")}
             onBack={() => go("command")}
           />
-          <Needs active={view === "needs"} responses={responses} setResponses={setResponses} toast={showToast} />
+          <Needs active={view === "needs"} toast={showToast} />
           <Monitor active={view === "monitor"} toast={showToast} />
         </div>
 

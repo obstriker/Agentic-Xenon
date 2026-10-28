@@ -1,7 +1,8 @@
-import { quotas } from "../data";
+import { useBackend } from "../api/backend";
 import { UsageMeter } from "../ui-xenon/usage-meter";
 
 export function Monitor({ active, toast }: { active: boolean; toast: (text: string) => void }) {
+  const { quotas } = useBackend();
   return (
     <section className={`view screen${active ? " active" : ""}`}>
       <div className="screenTop">
