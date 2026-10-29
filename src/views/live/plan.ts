@@ -16,7 +16,10 @@ export const seedPlan = (a: Agent): PlanStep[] => {
 };
 
 /** Mock: how long a running step takes before the agent moves on – 40 to 72 seconds, steady per step */
-export const stepMs = (label: string) => 40_000 + (label.length % 5) * 8_000;
+/** Preview only: scales step time so a short demo shows tasks finishing (1 = real pace) */
+export const demo = { speed: 1 };
+
+export const stepMs = (label: string) => (40_000 + (label.length % 5) * 8_000) * demo.speed;
 
 export const doneSteps = (steps: PlanStep[]) => steps.filter((s) => s.status === "done").length;
 
