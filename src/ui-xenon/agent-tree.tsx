@@ -72,7 +72,7 @@ export interface AgentTreeProps {
   title?: string;
   /** Replace any of the words the component shows */
   labels?: Partial<TreeLabels>;
-  /** Draw an agent's mark yourself; defaults to the mark of its model */
+  /** Draw an agent's mark yourself; return nothing to fall back to the mark of its model */
   renderAvatar?: (agent: TreeAgent) => ReactNode;
   /** Draw a tool's mark yourself; defaults to a glyph chosen from its name */
   renderTool?: (tool: string, agent: TreeAgent) => ReactNode;
@@ -287,6 +287,11 @@ function useTween(target: number, ms: number) {
 function Money({ value, format, still }: { value: number; format: (n: number) => string; still?: boolean }) {
   const reduced = useReducedMotion();
   return <>{format(useTween(value, reduced || still ? 0 : 700))}</>;
+}
+
+/** A long name with no spaces ("10x_exploitation_workshop") may break after its separators instead of mid-word */
+function softBreaks(name: string): ReactNode[] {
+  return name.split(/(?<=[_\-/.])/).flatMap((part, i) => (i === 0 ? [part] : [<wbr key={i} />, part]));
 }
 
 /** Ids of the agents above `id`, outermost first */
@@ -569,12 +574,12 @@ function Branch({ node, depth, collapsed, onToggle, onSelect, selected, nowMs, f
     <>
       <span className="xn-at__top">
         <span className="xn-at__avatar" aria-hidden="true">
-          {cfg.renderAvatar ? cfg.renderAvatar(node) : <ModelMark model={node.model} name={node.name} />}
+          {cfg.renderAvatar?.(node) ?? <ModelMark model={node.model} name={node.name} />}
         </span>
         <span className="xn-at__who">
           <span className="xn-at__name">
             {clickable && <span className="xn-at__sr">{cfg.L.openRun}</span>}
-            {node.name}
+            {softBreaks(node.name)}
           </span>
           {node.model && <span className="xn-at__model">{node.model}</span>}
         </span>

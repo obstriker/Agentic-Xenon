@@ -43,8 +43,11 @@ export function createEngine(db: Db, emit: Emit) {
       const next = steps.findIndex((s, j) => j > at && s.status === "queued");
       tx(() => {
         db.prepare("UPDATE plan_steps SET status='done', duration=?, started_at=NULL WHERE agent_id=? AND id=?").run(t - step.startedAt!, a.id, step.id);
-        const { context, calls } = a.limits;
-        const limits = { ...a.limits, context: { ...context, used: Math.min(context.max, context.used + TOKENS_PER_STEP) }, calls: { ...calls, used: Math.min(calls.max, calls.used + CALLS_PER_STEP) } };
+        const limits = a.limits ? {
+          ...a.limits,
+          context: { ...a.limits.context, used: Math.min(a.limits.context.max, a.limits.context.used + TOKENS_PER_STEP) },
+          calls: { ...a.limits.calls, used: Math.min(a.limits.calls.max, a.limits.calls.used + CALLS_PER_STEP) },
+        } : null;
         db.prepare("UPDATE agents SET cost = cost + ?, progress = ?, limits = ? WHERE id = ?").run(STEP_COST, Math.round(((at + 1) / steps.length) * 100), JSON.stringify(limits), a.id);
         if (next >= 0) {
           db.prepare("UPDATE plan_steps SET status='running', started_at=? WHERE agent_id=? AND id=?").run(t, a.id, steps[next].id);

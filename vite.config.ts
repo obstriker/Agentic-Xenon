@@ -6,6 +6,6 @@ export default defineConfig({
   // WSL does not deliver file-change events for /mnt/c; poll instead
   server: {
     watch: { usePolling: true, interval: 200 },
-    proxy: { "/api": "http://localhost:8787" },
+    proxy: { "/api": process.env.API_URL ?? "http://localhost:8787" },
   },
 });

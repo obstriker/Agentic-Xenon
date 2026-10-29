@@ -43,6 +43,8 @@ export type AgentPlanProps = {
   /** Label of the field for a new step */
   addLabel?: string;
   className?: string;
+  /** No renaming, reordering, removing, adding, or retrying - just the timeline and its footer */
+  readOnly?: boolean;
 };
 
 const clock = (ms: number) => {
@@ -51,7 +53,7 @@ const clock = (ms: number) => {
 };
 const took = (ms: number) => (ms < 60_000 ? `${(ms / 1000).toFixed(1)}s` : clock(ms));
 
-export function AgentPlan({ goal, steps, onChange, addLabel = "Add a step", className }: AgentPlanProps) {
+export function AgentPlan({ goal, steps, onChange, addLabel = "Add a step", className, readOnly }: AgentPlanProps) {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [added, setAdded] = useState("");
@@ -119,6 +121,7 @@ export function AgentPlan({ goal, steps, onChange, addLabel = "Add a step", clas
         </div>
 
         <ol className="xn-pl__list">
+          {steps.length === 0 && <li className="xn-pl__none">No steps planned yet.</li>}
           {steps.map((s, i) => {
             const queued = s.status === "queued";
             const canUp = queued && steps[i - 1]?.status === "queued";
@@ -144,7 +147,7 @@ export function AgentPlan({ goal, steps, onChange, addLabel = "Add a step", clas
                           if (e.key === "Escape") setEditing(null);
                         }}
                       />
-                    ) : queued ? (
+                    ) : queued && !readOnly ? (
                       <button
                         type="button"
                         className="xn-pl__label xn-pl__label--edit"
@@ -166,7 +169,7 @@ export function AgentPlan({ goal, steps, onChange, addLabel = "Add a step", clas
                         {clock((s.pausedAt ?? now) - s.startedAt)}
                       </span>
                     )}
-                    {queued && (
+                    {queued && !readOnly && (
                       <span className="xn-pl__tools">
                         <button type="button" className="xn-pl__tool" disabled={!canUp} aria-label={`Move step ${i + 1} up`} onClick={() => move(i, -1)}>
                           <ArrowIcon />
@@ -203,9 +206,11 @@ export function AgentPlan({ goal, steps, onChange, addLabel = "Add a step", clas
                   {s.status === "failed" && (
                     <>
                       <p className="xn-pl__note xn-pl__note--failed">{s.error ?? "This step failed"}</p>
-                      <Button variant="secondary" size="md" onClick={() => retry(s.id)} icon={<RetryIcon />}>
-                        Retry from here
-                      </Button>
+                      {!readOnly && (
+                        <Button variant="secondary" size="md" onClick={() => retry(s.id)} icon={<RetryIcon />}>
+                          Retry from here
+                        </Button>
+                      )}
                     </>
                   )}
                 </div>
@@ -214,18 +219,20 @@ export function AgentPlan({ goal, steps, onChange, addLabel = "Add a step", clas
           })}
         </ol>
 
-        <form
-          className="xn-pl__add"
-          onSubmit={(e) => {
-            e.preventDefault();
-            add();
-          }}
-        >
-          <input className="xn-pl__input" value={added} placeholder={`${addLabel}…`} aria-label={addLabel} onChange={(e) => setAdded(e.target.value)} />
-          <button type="submit" className="xn-pl__addbtn" disabled={!added.trim()}>
-            Add
-          </button>
-        </form>
+        {!readOnly && (
+          <form
+            className="xn-pl__add"
+            onSubmit={(e) => {
+              e.preventDefault();
+              add();
+            }}
+          >
+            <input className="xn-pl__input" value={added} placeholder={`${addLabel}…`} aria-label={addLabel} onChange={(e) => setAdded(e.target.value)} />
+            <Button type="submit" className="xn-pl__addbtn" size="lg" disabled={!added.trim()}>
+              Add
+            </Button>
+          </form>
+        )}
 
         <footer className="xn-pl__foot" data-tone={summary.tone} role="status">
           <span className="xn-pl__foot-mark" aria-hidden="true">
@@ -296,6 +303,7 @@ const css = /* css */ `
 .xn-pl__goal { margin: 8px 0 0; font-size: 28px; font-weight: 650; letter-spacing: -0.03em; line-height: 1.2; }
 
 .xn-pl__list { margin: 0; padding: 18px 28px 6px; list-style: none; }
+.xn-pl__none { padding: 6px 2px 10px; font-size: 18px; color: var(--xn-pl-muted); }
 .xn-pl__step { position: relative; display: flex; gap: 18px; padding-bottom: 20px; animation: xn-pl-in 480ms var(--xn-pl-ease) both; }
 .xn-pl__step[data-last] { padding-bottom: 12px; }
 .xn-pl__time--live[data-paused] { color: var(--xn-pl-faint); }
@@ -344,9 +352,7 @@ const css = /* css */ `
 .xn-pl__input { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid #58708d; border-radius: 12px; background: #0e1928; color: var(--xn-pl-ink); font: inherit; font-size: 18px; }
 .xn-pl__input:focus-visible { outline: 3px solid #89bdff; outline-offset: 2px; }
 .xn-pl__add { display: flex; gap: 10px; padding: 4px 28px 22px 82px; }
-.xn-pl__addbtn { flex: none; min-height: 48px; padding: 0 22px; border: 0; border-radius: 12px; background: linear-gradient(#f4f4f5, #dfe3e8); color: #121c2a; font: inherit; font-size: 16px; font-weight: 650; cursor: pointer; }
-.xn-pl__addbtn:disabled { opacity: 0.4; cursor: default; }
-.xn-pl__addbtn:focus-visible { outline: 3px solid #89bdff; outline-offset: 2px; }
+.xn-pl__addbtn { flex: none; }
 
 .xn-pl__foot { display: flex; align-items: center; gap: 12px; padding: 18px 28px; border-top: 1px solid var(--xn-pl-line); font-size: 19px; font-weight: 500; color: var(--xn-pl-muted); }
 .xn-pl__foot[data-tone="failed"] { color: var(--xn-pl-bad); }

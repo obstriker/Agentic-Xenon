@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Xenon · A Triage</title><link rel="stylesheet" href="shared.css">
+<style>
+.sec{display:flex;flex-direction:column;gap:10px;min-width:0}.sec>.eyebrow{height:22px}
+.ask{flex:0 0 880px;display:grid;grid-template-columns:1fr 1fr;gap:14px;grid-template-rows:1fr}
+.ask .card{border-color:#6b5638;background:linear-gradient(150deg,#2a2419,#161b24);display:flex;flex-direction:column;gap:10px;padding:16px 18px}
+.ask h3{margin:0;font-size:22px;letter-spacing:-.03em}.ask .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ask p{margin:0;font-size:18px;color:#e6dcc6;line-height:1.35}
+.acts{display:flex;gap:8px;margin-top:auto}.acts .btn{flex:1;padding:0 8px;font-size:15px}
+.run{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px}
+.tile{padding:12px 16px;border-radius:14px;border:1px solid #2b394d;background:#121b28;display:flex;flex-direction:column;justify-content:space-between;text-align:left}
+.tile b{font-size:19px;letter-spacing:-.03em;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .s{font-size:14px;color:#aabace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tile .m{display:flex;justify-content:space-between;font-size:15px;color:#aabace}
+.jarvis{flex:0 0 300px;padding:16px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px}
+.jarvis .orb{width:190px;height:190px;margin:auto}.jarvis p{margin:0;font-size:16px;color:#b8cadd;line-height:1.35}
+</style></head><body><div id="shell"><main class="main">
+<div class="sec" style="flex:none"><div class="eyebrow wait">Needs you · 2</div><div class="ask" id="ask" style="flex:1"></div></div>
+<div class="sec" style="flex:1"><div class="eyebrow">Running · 4</div><div class="run" id="run" style="flex:1"></div></div>
+<aside class="jarvis"><div class="label" style="align-self:flex-start">JARVIS</div><div class="orb"></div><p>Two agents paused on decisions. The rest are on track.</p><button class="btn" style="width:100%">Ask JARVIS</button></aside>
+</main></div><div class="tag">A · TRIAGE — Xeneon Edge 2560×720</div>
+<script src="shared.js"></script><script>
+document.getElementById("ask").innerHTML=waiting.map(a=>`<div class="card"><div class="top"><h3>${a.n}</h3>${pill(a)}</div><p>${a.q}</p><div class="acts">${a.o.map((o,i)=>`<button class="btn${i==0?" primary":""}">${o}</button>`).join("")}</div></div>`).join("");
+document.getElementById("run").innerHTML=AGENTS.filter(a=>a.st!=="waiting").map(a=>`<button class="tile"><b>${a.n}</b><div class="s">${a.s}</div><div class="track"><div style="width:${a.p}%"></div></div><div class="m"><span>${a.p}% · ${a.t[0]}/${a.t[1]} tasks</span><span>${usd(a.c)}</span></div></button>`).join("");
+</script></body></html>

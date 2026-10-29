@@ -4,7 +4,7 @@ import type { PlanStep } from "../../ui-xenon/agent-plan";
 import { StatusPill } from "../../StatusPill";
 import { Button } from "../../ui/button";
 import { NumberTicker } from "../../ui/number-ticker";
-import { ThinkingLoader } from "../../ui/thinking-loader";
+import { ThinkingLoader } from "../../ui-xenon/thinking-loader";
 import { LimitMeter } from "../../ui-xenon/limit-meter";
 import { costOf, progressOf, statusOf } from "./plan";
 

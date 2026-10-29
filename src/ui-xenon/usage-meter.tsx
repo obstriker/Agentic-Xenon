@@ -11,6 +11,7 @@ import { Button } from "../ui/button";
  */
 
 export type UsageSegment = { label: string; value: number; color: string };
+export type UsageWindow = { id: string; label: string; segments: UsageSegment[]; reset: string; color: string; daily: number[] };
 
 export type UsageMeterProps = {
   name: string;
@@ -19,6 +20,14 @@ export type UsageMeterProps = {
   segments: UsageSegment[];
   /** Daily usage in percent of the limit, oldest first – drawn as a sparkline */
   daily: number[];
+  /** Accessible label when samples are collected more frequently than daily. */
+  historyLabel?: string;
+  /** Independent allowances shown together. Their percentages are never added. */
+  windows?: UsageWindow[];
+  /** Provider-reported spend can take priority over the percentage headline. */
+  spend?: { label: string; used: number; limit?: number; unit: string; usedPercent?: number; reset: string };
+  /** Shown instead of a percentage when the provider has not returned usage. */
+  emptyMessage?: string;
   /** e.g. "Reset in 2h 18m" */
   reset: string;
   /** From this used percentage on, the card speaks up */
@@ -33,51 +42,98 @@ const W = 160;
 const H = 36;
 
 function sparkPath(values: number[]) {
-  const max = Math.max(...values, 1);
+  // Every line uses the same percentage scale, so independent windows stay comparable.
+  const max = 100;
   const step = values.length > 1 ? W / (values.length - 1) : 0;
-  const pts = values.map((v, i) => [i * step, H - 4 - (v / max) * (H - 10)] as const);
+  const pts = values.map((v, i) => [values.length === 1 ? W : i * step, H - 4 - (v / max) * (H - 10)] as const);
   const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
   return { line, area: `${line} L${W} ${H} L0 ${H} Z`, last: pts[pts.length - 1] };
 }
 
-export function UsageMeter({ name, plan, segments, daily, reset, warnAt = 85, actionLabel, onAction, className }: UsageMeterProps) {
-  const used = Math.min(100, Math.round(segments.reduce((sum, s) => sum + s.value, 0)));
-  const near = used >= warnAt;
-  const spark = sparkPath(daily);
+export function UsageMeter({ name, plan, segments, daily, reset, warnAt = 85, actionLabel, onAction, className, historyLabel, emptyMessage, windows, spend }: UsageMeterProps) {
+  const readings = windows?.length ? windows : [{ id: name, label: "", segments, reset, color: "currentColor", daily }];
+  const near = readings.some((w) => w.segments.reduce((sum, s) => sum + s.value, 0) >= warnAt);
+  const histories = readings.filter((w) => w.daily.length > 0).map((w) => ({ ...w, spark: sparkPath(w.daily) }));
   const fade = useId();
-  let offset = 0;
 
   return (
     <>
       <style href="xn-usage-meter" precedence="default">
         {css}
       </style>
-      <article className={["xn-um", className].filter(Boolean).join(" ")} data-near={near || undefined} aria-label={`${name} usage`}>
+      <article className={["xn-um", className].filter(Boolean).join(" ")} data-near={near || undefined} data-multi={windows?.length ? true : undefined} aria-label={`${name} usage`}>
         <header className="xn-um__head">
           <div>
             <h2 className="xn-um__name">{name}</h2>
             <small className="xn-um__plan">{plan}</small>
           </div>
-          <svg className="xn-um__spark" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Daily usage, last ${daily.length} days`}>
-            <defs>
-              <linearGradient id={fade} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="currentColor" stopOpacity="0.32" />
-                <stop offset="1" stopColor="currentColor" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path className="xn-um__spark-area" d={spark.area} fill={`url(#${fade})`} />
-            <path className="xn-um__spark-line" d={spark.line} pathLength={1} />
-            <circle className="xn-um__spark-dot" cx={spark.last[0]} cy={spark.last[1]} r="3" />
-          </svg>
+          {histories.length > 0 && <svg className="xn-um__spark" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={historyLabel ?? `Daily usage, last ${daily.length} days`}>
+            <title>{histories.map((h) => `${h.label || name}: ${h.daily.length} usage ${h.daily.length === 1 ? "sample" : "samples"}`).join("; ")}</title>
+            <defs>{histories.map((h, i) => <linearGradient key={h.id} id={`${fade}-${i}`} x1="0" y1="0" x2="0" y2="1" style={{ color: h.color }}>
+              <stop offset="0" stopColor="currentColor" stopOpacity="0.32" />
+              <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+            </linearGradient>)}</defs>
+            {histories.map((h, i) => <g key={h.id} style={{ color: h.color }}>
+              {histories.length === 1 && h.daily.length > 1 && <path className="xn-um__spark-area" d={h.spark.area} fill={`url(#${fade}-${i})`} />}
+              <path className="xn-um__spark-line" d={h.spark.line} pathLength={1} />
+              <circle className="xn-um__spark-dot" cx={h.spark.last[0]} cy={h.spark.last[1]} r="3" />
+            </g>)}
+          </svg>}
         </header>
 
-        <div className="xn-um__figure">
+        {readings.some((w) => w.segments.length) ? windows?.length ? <CombinedReading name={name} windows={windows} spend={spend} /> : <div className="xn-um__readings">
+          {readings.map((w) => <UsageReading key={w.id} name={name} label={w.label} segments={w.segments} reset={w.reset} color={w.color} warnAt={warnAt} actionLabel={actionLabel} onAction={onAction} />)}
+        </div> : <div className="xn-um__empty" role="status"><span aria-hidden="true">—</span><p>{emptyMessage ?? "No usage data available yet."}</p></div>}
+      </article>
+    </>
+  );
+}
+
+function CombinedReading({ name, windows, spend }: { name: string; windows: UsageWindow[]; spend?: UsageMeterProps["spend"] }) {
+  const readings = windows.map((w) => ({ ...w, used: Math.min(100, Math.round(w.segments.reduce((sum, s) => sum + s.value, 0))) }));
+  const limiting = readings.reduce((a, b) => b.used > a.used ? b : a);
+  const primary = readings.find((w) => !/weekly/i.test(w.label)) ?? limiting;
+  const value = spend?.usedPercent ?? primary.used;
+  const color = spend?.usedPercent != null ? "#f0bf84" : primary.color;
+  return <div className="xn-um__combined">
+    <div className="xn-um__figure">
+      <NumberTicker value={spend?.used ?? primary.used} format={spend ? { maximumFractionDigits: 2 } : undefined} />
+      {!spend && <span className="xn-um__pct">%</span>}
+      <small className="xn-um__used">{spend ? `${spend.unit} used` : "used"}</small>
+    </div>
+    <p className="xn-um__basis">{spend ? <>{spend.label}{spend.limit != null && <> · {spend.limit.toLocaleString()} {spend.unit} limit</>}</> : primary.label}</p>
+    <div className="xn-um__bar xn-um__bar--combined" role="progressbar" aria-label={`${name} ${spend?.usedPercent != null ? spend.label : primary.label} used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} title="The fill shows the primary allowance. The red stick marks weekly usage independently on the same percentage scale.">
+      <span className="xn-um__seg" style={{ left: 0, width: `${value}%`, background: color }} />
+      {readings.filter((w) => /weekly/i.test(w.label)).map((w) => <span key={w.id} className="xn-um__window-marker" data-weekly title={`${w.label}: ${w.used}% used · ${w.reset}`} style={{ left: `${Math.min(99.5, Math.max(.5, w.used))}%`, background: w.color }} />)}
+    </div>
+    <ul className="xn-um__window-legend">
+      {readings.map((w) => <li key={w.id}>
+        <span><i style={{ background: w.color }} aria-hidden="true" />{w.label}<b>{w.used}%</b></span>
+        <small>{w.reset}</small>
+      </li>)}
+    </ul>
+    {spend && <footer className="xn-um__foot"><span>{spend.reset}</span><b>{spend.limit != null ? `${Math.max(0, spend.limit - spend.used).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${spend.unit} left` : "Reported spend"}</b></footer>}
+  </div>;
+}
+
+function UsageReading({ name, label, segments, reset, color, warnAt, actionLabel, onAction }: {
+  name: string; label: string; segments: UsageSegment[]; reset: string; color: string; warnAt: number;
+  actionLabel?: ReactNode; onAction?: () => void;
+}) {
+  const used = Math.min(100, Math.round(segments.reduce((sum, s) => sum + s.value, 0)));
+  const near = used >= warnAt;
+  let offset = 0;
+  return <section className="xn-um__reading" aria-label={label || `${name} allowance`} data-near={near || undefined}>
+        <div className="xn-um__reading-head">
+          {label && <h3><i style={{ background: color }} aria-hidden="true" />{label}</h3>}
+          <div className="xn-um__figure">
           <NumberTicker value={used} />
           <span className="xn-um__pct">%</span>
           <small className="xn-um__used">used</small>
+          </div>
         </div>
 
-        <div className="xn-um__bar" role="progressbar" aria-label={`${name} used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={used}>
+        <div className="xn-um__bar" role="progressbar" aria-label={`${name} ${label || "allowance"} used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={used}>
           {segments.map((s, i) => {
             const left = offset;
             offset += s.value;
@@ -93,7 +149,7 @@ export function UsageMeter({ name, plan, segments, daily, reset, warnAt = 85, ac
           <span className="xn-um__limit" style={{ left: `${warnAt}%` }} aria-hidden="true" />
         </div>
 
-        <ul className="xn-um__legend">
+        {(!label || segments.length > 1) && <ul className="xn-um__legend">
           {segments.map((s) => (
             <li key={s.label}>
               <i style={{ background: s.color }} aria-hidden="true" />
@@ -101,9 +157,9 @@ export function UsageMeter({ name, plan, segments, daily, reset, warnAt = 85, ac
               <b>{s.value}%</b>
             </li>
           ))}
-        </ul>
+        </ul>}
 
-        {near ? (
+        {near && !label ? (
           <div className="xn-um__alert" role="status">
             <span>
               Only <b>{100 - used}%</b> left · {reset.toLowerCase()}
@@ -120,9 +176,7 @@ export function UsageMeter({ name, plan, segments, daily, reset, warnAt = 85, ac
             <b>{100 - used}% remaining</b>
           </footer>
         )}
-      </article>
-    </>
-  );
+      </section>;
 }
 
 const css = /* css */ `
@@ -146,6 +200,31 @@ const css = /* css */ `
   font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   transition: border-color 300ms ease, box-shadow 300ms ease;
 }
+.xn-um__empty { min-height: 175px; display: flex; flex-direction: column; justify-content: center; gap: 16px; color: var(--xn-um-muted); }
+.xn-um__empty > span { font-size: 45px; line-height: 1; }
+.xn-um__empty > p { margin: 0; font-size: 16px; line-height: 1.6; }
+.xn-um__readings { display: flex; flex-direction: column; gap: 22px; }
+.xn-um__reading { display: flex; flex-direction: column; gap: 16px; }
+.xn-um__reading-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.xn-um__reading-head h3 { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 16px; font-weight: 500; color: var(--xn-um-muted); }
+.xn-um__reading-head h3 i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.xn-um[data-multi] .xn-um__reading { gap: 12px; }
+.xn-um[data-multi] .xn-um__reading + .xn-um__reading { border-top: 1px solid var(--xn-um-line); padding-top: 18px; }
+.xn-um[data-multi] .xn-um__figure { font-size: 45px; }
+.xn-um[data-multi] .xn-um__foot { font-size: 14px; }
+.xn-um[data-multi] .xn-um__reading[data-near] .xn-um__foot b { color: var(--xn-um-warn); }
+.xn-um__combined { display: flex; flex-direction: column; gap: 16px; }
+.xn-um__basis { margin: -8px 0 0; color: var(--xn-um-muted); font-size: 14px; }
+.xn-um__bar.xn-um__bar--combined { overflow: visible; }
+.xn-um__bar--combined > .xn-um__seg { border-radius: 999px; }
+.xn-um__window-marker { position: absolute; width: 3px; top: 0; bottom: 0; transform: translateX(-50%); border-radius: 2px; }
+.xn-um__window-marker[data-weekly] { width: 5px; top: -4px; bottom: -4px; z-index: 1; }
+.xn-um__window-legend { display: flex; flex-wrap: wrap; gap: 12px 24px; list-style: none; padding: 0; margin: 0; }
+.xn-um__window-legend li { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.xn-um__window-legend li > span { display: flex; align-items: center; gap: 7px; color: var(--xn-um-muted); font-size: 14px; }
+.xn-um__window-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.xn-um__window-legend b { color: var(--xn-um-ink); font-variant-numeric: tabular-nums; }
+.xn-um__window-legend small { color: var(--xn-um-muted); font-size: 12px; padding-left: 15px; }
 .xn-um *, .xn-um *::before, .xn-um *::after { box-sizing: border-box; }
 .xn-um[data-near] { border-color: rgba(240, 191, 132, 0.45); box-shadow: 0 0 0 1px rgba(240, 191, 132, 0.12), 0 12px 40px -18px rgba(240, 191, 132, 0.35); }
 

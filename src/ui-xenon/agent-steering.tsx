@@ -66,6 +66,8 @@ export interface AgentSteeringProps {
   formatDuration?: (ms: number) => string;
   /** The key hints under the box (default true) */
   showHints?: boolean;
+  /** Just the header and the step checklist – no pause/resume, queue or composer. For a read-only peek. */
+  readOnly?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -169,6 +171,7 @@ export function AgentSteering({
   formatClock: clock = formatClock,
   formatDuration: duration = formatDuration,
   showHints = true,
+  readOnly = false,
   className = "",
   style,
 }: AgentSteeringProps) {
@@ -262,7 +265,7 @@ export function AgentSteering({
                 )}
               </span>
             </div>
-            {status === "running" ? (
+            {readOnly ? null : status === "running" ? (
               <button type="button" className="as-icon-btn" onClick={onPause} aria-label={L.pause}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M6 4h4v16H6zM14 4h4v16h-4z" />
@@ -286,7 +289,7 @@ export function AgentSteering({
           </ol>
         </div>
 
-        {queue.length > 0 && (
+        {!readOnly && queue.length > 0 && (
           <div className="as-queue">
             <div className="as-queue-head">
               <span>{done ? L.queueLeft : L.queued}</span>

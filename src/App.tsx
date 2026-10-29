@@ -113,7 +113,7 @@ export function App() {
       </nav>
 
       <main className="main" ref={mainRef}>
-        {/* The stage is dark; the expanded-agent dialog sits outside it and uses the light theme of the components */}
+        {/* The stage and the expanded-agent dialog each set their component theme. */}
         <div className="stage dark">
           <Command
             active={view === "command"}
@@ -135,7 +135,7 @@ export function App() {
             onBack={() => go("command")}
           />
           <Needs active={view === "needs"} toast={showToast} />
-          <Monitor active={view === "monitor"} toast={showToast} />
+          <Monitor active={view === "monitor"} />
         </div>
 
         <div className={`shade${expand && !expand.closing ? " on" : ""}`} onClick={closeExpand} />

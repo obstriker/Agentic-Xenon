@@ -117,6 +117,15 @@ export interface Quota {
   segments: { label: string; value: number; color: string }[];
   daily: number[];
   actionLabel?: string;
+  /** Present for real subscription data; legacy seed rows have no provider. */
+  provider?: "Claude" | "Codex" | "Gemini";
+  window?: string;
+  status?: "loading" | "live" | "stale" | "unavailable";
+  updatedAt?: number;
+  resetsAt?: number;
+  message?: string;
+  details?: string[];
+  spend?: { label: string; used: number; limit?: number; unit: string; usedPercent?: number; resetsAt?: number };
 }
 
 export type LedgerAction = "created" | "updated" | "archived" | "sent";

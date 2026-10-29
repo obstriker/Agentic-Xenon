@@ -2,6 +2,7 @@
  "agents": [
   {
    "name": "Market landscape",
+   "kind": "claude",
    "desc": "Mapping competitors and emerging product shifts",
    "step": "Cross-checking pricing models",
    "cost": 3.84,
@@ -21,6 +22,7 @@
   },
   {
    "name": "Protocol research",
+   "kind": "codex",
    "desc": "Evaluating implementation patterns and security assumptions",
    "step": "Testing protocol assumptions",
    "cost": 2.17,
@@ -39,6 +41,7 @@
   },
   {
    "name": "Dataset synthesis",
+   "kind": "gemini",
    "desc": "Comparing public datasets and source reliability",
    "step": "Waiting for dataset permission",
    "cost": 1.62,
@@ -57,6 +60,7 @@
   },
   {
    "name": "Literature review",
+   "kind": "claude",
    "desc": "Extracting evidence across academic and industry publications",
    "step": "Grouping evidence clusters",
    "cost": 5.31,
@@ -75,6 +79,7 @@
   },
   {
    "name": "Risk assessment",
+   "kind": "claude",
    "desc": "Identifying unresolved assumptions and potential failure modes",
    "step": "Waiting for risk tolerance",
    "cost": 0.98,
@@ -93,6 +98,7 @@
   },
   {
    "name": "Executive briefing",
+   "kind": "claude",
    "desc": "Turning research findings into a decision-ready summary",
    "step": "Drafting key takeaways",
    "cost": 1.48,

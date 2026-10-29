@@ -187,7 +187,6 @@ const css = /* css */ `
   --ui-btn-edge-top: #4b4951;
   --ui-btn-edge-mid: #31303a;
   --ui-btn-edge-bottom: #18171b;
-  --ui-btn-ring: #0d0d0d;
   --ui-btn-dark-shadow: rgba(0, 0, 0, 0.1);
   --ui-btn-surface: #ffffff;
   --ui-btn-surface-hover: #fafafa;
@@ -265,15 +264,13 @@ const css = /* css */ `
 }
 
 /* primary: like the send button */
-/* primary: a dark gradient with a light edge running down the border and a 1px ring */
+/* primary: a dark gradient with a light edge running down the border */
 .ui-button[data-variant="primary"] {
   background:
     linear-gradient(var(--ui-btn-dark-top), var(--ui-btn-dark-bottom)) padding-box,
     linear-gradient(var(--ui-btn-edge-top), var(--ui-btn-edge-mid), var(--ui-btn-edge-bottom)) border-box;
   color: var(--ui-btn-on-ink);
-  box-shadow:
-    0 0 0 1px var(--ui-btn-ring),
-    0 2px 4px var(--ui-btn-dark-shadow);
+  box-shadow: 0 2px 4px var(--ui-btn-dark-shadow);
 }
 .ui-button[data-variant="primary"]:hover:not(:disabled) {
   background:
@@ -453,7 +450,6 @@ const css = /* css */ `
   --ui-btn-edge-top: #ffffff;
   --ui-btn-edge-mid: #ececef;
   --ui-btn-edge-bottom: #d4d4d8;
-  --ui-btn-ring: rgba(0, 0, 0, 0.6);
   --ui-btn-dark-shadow: rgba(0, 0, 0, 0.4);
   --ui-btn-shine-on-ink: rgba(255, 255, 255, 0.9);
 

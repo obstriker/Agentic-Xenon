@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Xenon · C Ledger</title><link rel="stylesheet" href="shared.css">
+<style>
+.col{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.head{display:flex;align-items:center;justify-content:space-between;height:56px}
+.tbl{flex:1;min-height:0;padding:4px 6px}
+.tr{display:grid;grid-template-columns:260px 1fr 190px 70px 80px 130px;align-items:center;gap:16px;padding:0 16px;height:68px;border-radius:10px;width:100%;text-align:left;background:transparent;font-size:16px}
+.tr.h{height:34px;font-size:13px;letter-spacing:.09em;color:#9aafc5;font-weight:750;text-transform:uppercase;border-bottom:1px solid #2e4054;border-radius:0}
+.tr.sel{background:#1a2635;box-shadow:inset 3px 0 #9ecbff}.tr b{font-size:18px;letter-spacing:-.03em}.tr span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.insp{flex:0 0 400px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.orbrow{display:flex;align-items:center;gap:12px}.orbrow .orb{width:44px;height:44px;flex:none;animation:none}.orbrow span{font-size:14px;color:#b8cadd;line-height:1.3}
+.insp h2{margin:0;font-size:24px;letter-spacing:-.035em}.insp p{margin:0;font-size:16px;line-height:1.4;color:#c5d5e5}
+.mt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.mt div{padding:8px 10px;border-radius:10px;background:#0e1725;font-size:13px;color:#a5b8cd}.mt b{display:block;font-size:20px;color:#f4f6fb;letter-spacing:-.03em}
+.acts{display:flex;gap:10px;margin-top:auto}.acts .btn{flex:1}
+</style></head><body><div id="shell"><main class="main">
+<div class="col"><div class="head"><h1>Command <small>· 6 research agents</small></h1><button class="btn sm primary">2 decisions need you ↗</button></div>
+<div class="panel tbl"><div class="tr h"><span>Agent</span><span>Now</span><span>Progress</span><span>Tasks</span><span>Spend</span><span>Status</span></div><div id="tb"></div></div></div>
+<aside class="panel insp"><div class="orbrow"><div class="orb"></div><span><b style="color:#f4f6fb">JARVIS</b> · coordinating 6 agents</span></div><div id="in" style="display:flex;flex-direction:column;gap:10px;flex:1"></div></aside>
+</main></div><div class="tag">C · LEDGER — Xeneon Edge 2560×720</div>
+<script src="shared.js"></script><script>
+function sel(i){const a=AGENTS[i];
+document.querySelectorAll(".tr:not(.h)").forEach((e,j)=>e.classList.toggle("sel",j===i));
+document.getElementById("in").innerHTML=`<h2>${a.n}</h2><p>${a.q||a.d}</p><div class="mt"><div><b>${a.p}%</b>progress</div><div><b>${a.t[0]}/${a.t[1]}</b>tasks</div><div><b>${usd(a.c)}</b>spend</div></div>
+${a.q?`<div class="acts">${a.o.slice(0,2).map((o,k)=>`<button class="btn${k==0?" primary":""}">${o}</button>`).join("")}</div>`:`<div class="acts"><button class="btn">Pause</button><button class="btn">Open plan ↗</button></div>`}`}
+document.getElementById("tb").innerHTML=AGENTS.map((a,i)=>`<button class="tr" onclick="sel(${i})"><b>${a.n}</b><span class="${a.st==="waiting"?"wait":"muted"}">${a.s}</span><div class="track ${a.st==="waiting"?"wait":""}"><div style="width:${a.p}%"></div></div><span class="muted">${a.t[0]}/${a.t[1]}</span><span class="muted">${usd(a.c)}</span>${pill(a)}</button>`).join("");
+sel(2);
+</script></body></html>

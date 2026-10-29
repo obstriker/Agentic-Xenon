@@ -1,0 +1,19 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Xenon · B Mission</title><link rel="stylesheet" href="shared.css">
+<style>
+.jarvis{flex:0 0 540px;display:grid;grid-template-columns:190px 1fr;align-items:center;gap:20px;padding:18px 22px}
+.jarvis .orb{width:190px;height:190px}.jarvis h2{margin:4px 0 6px;font-size:28px;letter-spacing:-.045em;line-height:1.1}
+.jarvis p{margin:0 0 12px;font-size:16px;color:#b8cadd;line-height:1.35}
+.kp{display:flex;gap:18px;margin-bottom:12px}.kp div{font-size:13px;color:#a5b8cd}.kp b{display:block;font-size:26px;color:#f4f6fb;letter-spacing:-.04em}
+.fleet{flex:1;min-width:0;display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.tile{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:15px;border:1px solid #354257;background:linear-gradient(150deg,#1a2635,#121b28);text-align:left}
+.tile.w{border-color:#6b5638}.tile h3{margin:0;font-size:19px;letter-spacing:-.03em;line-height:1.15}.tile .st{align-self:flex-start}
+.tile .s{font-size:14px;color:#aabace;line-height:1.3}.tile .big{font-size:56px;font-weight:700;letter-spacing:-.05em;margin-top:auto;line-height:1}
+.tile .m{display:flex;justify-content:space-between;font-size:14px;color:#aabace}
+</style></head><body><div id="shell"><main class="main">
+<section class="jarvis"><div class="orb"></div><div><div class="label">JARVIS · COORDINATOR</div><h2>Mission 59% complete</h2><p>2 agents are paused until you decide.</p><div class="kp" id="kp"></div><button class="btn primary">2 decisions need you ↗</button></div></section>
+<div class="fleet" id="fleet"></div>
+</main></div><div class="tag">B · MISSION — Xeneon Edge 2560×720</div>
+<script src="shared.js"></script><script>
+document.getElementById("kp").innerHTML=[[AGENTS.length-waiting.length,"working"],[waiting.length,"waiting"],[usd(total),"spent"]].map(([v,l])=>`<div><b>${v}</b>${l}</div>`).join("");
+document.getElementById("fleet").innerHTML=AGENTS.map(a=>`<button class="tile${a.st==="waiting"?" w":""}"><span class="st">${pill(a)}</span><h3>${a.n}</h3><div class="s">${a.s}</div><div class="big">${a.p}%</div><div class="track ${a.st==="waiting"?"wait":""}"><div style="width:${a.p}%"></div></div><div class="m"><span>${a.t[0]}/${a.t[1]} tasks</span><span>${usd(a.c)}</span></div></button>`).join("");
+</script></body></html>

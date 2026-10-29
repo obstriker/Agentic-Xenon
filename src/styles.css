@@ -78,25 +78,41 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .jbuttons { display: flex; gap: 10px; width: 100%; }
 .stage .jbuttons .ui-button[data-size="lg"] { flex: 1; min-width: 0; --px: 12px; }
 
-/* ---------- expanded agent (light theme of the components) ---------- */
+/* ---------- expanded agent (dark, matching the rest of the app shell) ---------- */
 .shade { position: absolute; inset: 0; background: #050b12a6; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.28s; }
 .shade.on { opacity: 1; pointer-events: auto; }
-.expander { z-index: 11; position: absolute; top: 0; left: 0; overflow: hidden; border-radius: 17px; background: #f3f6fb; color: #17243a; box-shadow: 0 25px 100px #000a; display: flex; flex-direction: column; transform-origin: left center; }
+.expander { z-index: 11; position: absolute; top: 0; left: 0; overflow: hidden; border-radius: 17px; background: #131e2b; color: #f4f6fb; box-shadow: 0 25px 100px #000a; display: flex; flex-direction: column; transform-origin: left center; }
 .expandHead { display: flex; align-items: flex-start; gap: 18px; padding: 25px 28px 15px; }
 .expandHead h2 { margin: 0; font-size: 31px; letter-spacing: -0.045em; }
-.expandHead p { margin: 6px 0 0; font-size: 17px; color: #586a7e; }
-.exclose { margin-left: auto; flex: none; }
-.exContent { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr); gap: 28px; align-items: start; padding: 7px 28px 23px; min-height: 0; flex: 1; }
+.expandHead p { margin: 6px 0 0; font-size: 17px; color: #8395a9; }
+/* Button colours come from the shared component's dark theme. Only adjust geometry here. */
+.expander .ui-button { --radius: 8px; }
+.expander .ui-button.exclose { --h: 48px; --icon: 20px; margin-left: auto; flex: none; }
+.exContent { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr); gap: 28px; align-items: start; padding: 7px 28px 23px; min-height: 0; flex: 1; }
 .exTasks, .exMeta { min-width: 0; }
-.exTasks .ui-progress { max-width: none; }
+/* An inset section, aligned with the status divider, rather than a card inside a card. */
+.exTasks .xn-pl { max-width: none; background: transparent; border: 0; border-top: 1px solid #304158; border-radius: 0; }
+.exTasks .xn-pl__top { padding: 15px 0 6px; }
+.exTasks .xn-pl__eyebrow { color: #a9bed3; }
+/* The expander header already shows the goal as the subtitle, so the plan's own goal heading is redundant here */
+.exTasks .xn-pl__goal { display: none; }
+.exTasks .xn-pl__list { padding: 16px 0 0; }
+.exTasks .xn-pl__none { padding: 0; font-size: 16px; line-height: 1.5; color: #a9bed3; }
+.exTasks .xn-pl__add { padding-left: 54px; }
+/* The "Right now" panel already summarises status, so the plan's own footer is redundant in the expander */
+.exTasks .xn-pl__foot { display: none; }
+.jarvis .xn-tl[data-size], .expander .xn-tl[data-size] { --xn-tl-font: 17px; }
+.jarvis .xn-tl, .expander .xn-tl { filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.55)); }
 .exTasks .ui-progress__icon { width: auto; height: auto; overflow: visible; }
 .ui-progress[data-readonly] .ui-progress__step { pointer-events: none; cursor: default; }
-.exMeta { border-top: 1px solid #d8e0eb; padding-top: 15px; }
-.exMeta h3 { font-size: 16px; letter-spacing: 0.07em; color: #687b92; text-transform: uppercase; margin: 0 0 15px; }
-.exWaiting { font-size: 13px; font-weight: 600; color: #b25b0c; white-space: nowrap; }
-.exMeta p { font-size: 18px; color: #4e6075; line-height: 1.4; }
-.exMeta strong { color: #1d3147; }
-.exActions { display: flex; gap: 10px; margin-top: 18px; }
+.exMeta { border-top: 1px solid #304158; padding-top: 15px; }
+.exMeta h3 { font-size: 16px; letter-spacing: 0.07em; color: #7d90a8; text-transform: uppercase; margin: 0 0 15px; }
+.exWaiting { font-size: 13px; font-weight: 600; color: #f0c889; white-space: nowrap; }
+.exMeta p { font-size: 18px; color: #a9bed3; line-height: 1.4; }
+.exMeta strong { color: #f4f6fb; }
+.exActions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.expander.waiting .exTasks .xn-pl, .expander.waiting .exMeta { border-color: #665034; }
+.expander.waiting .xn-pl__eyebrow, .expander.waiting .xn-pl__none { color: #d2b994; }
 
 /* ---------- screens ---------- */
 .screen { flex-direction: column; gap: 14px; }
@@ -176,9 +192,28 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .review footer .ui-button { flex: 1; }
 
 /* ---------- quotas ---------- */
-.monitor { display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap; overflow: auto; }
-.monitor .xn-um { flex: 1 1 360px; max-width: 560px; }
-
+.monitor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; flex: 1; min-height: 0; }
+.subscription { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
+.subscriptionState { flex: none; padding: 6px 9px; border: 1px solid #34475c; border-radius: 6px; color: #a9bed3; font-size: 12px; white-space: nowrap; }
+.subscription[data-status="live"] .subscriptionState { color: #9be7c7; border-color: #35554d; }
+.subscription[data-status="stale"] .subscriptionState { color: #f0c889; border-color: #665034; }
+.subscription .xn-um { min-height: 0; }
+.monitor .subscription .xn-um { border: 0; box-shadow: none; }
+.subscriptionNote { color: #f0c889; font-size: 14px; line-height: 1.5; margin: 0; }
+.subscriptionFoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #7d90a8; font-size: 13px; }
+/* Slightly larger type for reading the quota cards on the Xeneon Edge. */
+.monitor .xn-um__name { font-size: 26px; }
+.monitor .xn-um__plan { font-size: 17px; }
+.monitor .xn-um[data-multi] .xn-um__figure { font-size: 50px; }
+.monitor .xn-um__used { font-size: 18px; }
+.monitor .xn-um__basis, .monitor .xn-um__window-legend li > span { font-size: 16px; }
+.monitor .xn-um__window-legend small { font-size: 14px; }
+.monitor .xn-um[data-multi] .xn-um__foot { font-size: 16px; }
+.monitor .xn-um__empty > p { font-size: 18px; }
+.monitor .subscriptionNote { font-size: 16px; }
+.monitor .subscriptionFoot { font-size: 15px; }
+.monitor .subscriptionState { font-size: 14px; }
+@media (max-width: 950px) { .monitor { grid-template-columns: 1fr; } }
 .toast { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 40; padding: 14px 22px; border-radius: 12px; background: #e5effa; color: #17263b; font-size: 17px; font-weight: 700; box-shadow: 0 16px 70px #0008; }
 
 
@@ -208,7 +243,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .agent.waiting { border-color: #6b5236; }
 .agent.waiting::before { content: ""; position: absolute; inset: 0; background: rgba(255, 130, 20, 0.42); pointer-events: none; animation: needsPulse 5.5s ease-in-out infinite; }
 .agent.waiting > :not(.hint) { position: relative; }
-.expander.waiting { background: #f2cfa6; }
+.expander.waiting { background: #2b2013; }
 @keyframes needsPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -240,3 +275,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .teamTile h3 span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .teamTile p { margin: 0; font-size: 15px; line-height: 1.4; color: #c5d2e1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .teamTile .row { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; color: #aabace; }
+/* A decision the chosen agent is waiting on, opened over the live network */
+.flowDecision { position: absolute; z-index: 6; inset: 48px 16px 16px; border-radius: 20px; overflow: auto; box-shadow: 0 24px 90px #000c; animation: flowDecisionIn 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+.flowDecision .xdt { min-height: 100%; }
+.flowDecisionClose { position: absolute; top: 12px; right: 12px; z-index: 3; width: 36px; height: 36px; border-radius: 10px; border: 1px solid #34343a; background: #232326; color: #d8d8de; font-size: 22px; line-height: 1; cursor: pointer; }
+.flowDecisionClose:hover { background: #2d2d33; }
+@keyframes flowDecisionIn { from { opacity: 0; transform: translateY(14px); } }
+.flowDecision .xdt-pager { margin-right: 48px; }
+/* The decision flow fills the left panel and scrolls inside it */
+.flowPanel { position: relative; overflow: auto; padding: 0; background: #1d1d20; border-color: #2a2a2e; }
+.flowPanel .xaf { min-height: 100%; border: 0; border-radius: 0; }
+.flowSwitch { display: flex; gap: 6px; max-width: 720px; overflow-x: auto; padding: 2px; scrollbar-width: thin; }
+.flowSwitch .flowChip { flex: none; display: inline-flex; align-items: center; gap: 8px; max-width: 190px; min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #34343a; background: #232326; color: #c9c9d0; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flowSwitch .flowChip i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #6a6a72; }
+.flowSwitch .flowChip[data-state="working"] i { background: #7fd9a6; }
+.flowSwitch .flowChip[data-state="waiting"] i { background: #e9a574; }
+.flowSwitch .flowChip[aria-pressed="true"] { background: #f4f4f6; color: #111; border-color: #f4f4f6; }
+.flowSwitch .flowChip:hover:not([aria-pressed="true"]) { background: #2d2d33; }

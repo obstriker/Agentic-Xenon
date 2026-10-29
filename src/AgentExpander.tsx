@@ -2,10 +2,9 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import { usd } from "./data";
 import { useBackend } from "./api/backend";
 import { Button } from "./ui/button";
-import { ThinkingLoader } from "./ui/thinking-loader";
+import { ThinkingLoader } from "./ui-xenon/thinking-loader";
 import { NumberTicker } from "./ui/number-ticker";
-import { ProgressTracker } from "./ui/progress-tracker";
-import type { PlanStep } from "./ui-xenon/agent-plan";
+import { AgentPlan, type PlanStep } from "./ui-xenon/agent-plan";
 import { costOf, doneSteps, progressOf, statusOf } from "./views/live/plan";
 
 export type ExpandState = { index: number; rect: DOMRect; closing: boolean };
@@ -79,14 +78,14 @@ export function AgentExpander({ state, plans, host, onClose, onDone, onRun, onRe
   }, [state.closing]);
 
   return (
-    <div className={`expander${status === "waiting" ? " waiting" : ""}`} ref={el} role="dialog" aria-modal="true" aria-label="Agent tasks" inert={state.closing}>
+    <div className={`expander${status === "waiting" ? " waiting" : ""}`} data-theme="dark" ref={el} role="dialog" aria-modal="true" aria-label="Agent tasks" inert={state.closing}>
       <div className="expandHead">
         <div>
           <h2>{agent.name}</h2>
           <p>{agent.desc}</p>
         </div>
         <Button
-          variant="secondary"
+          variant="ghost"
           size="lg"
           className="exclose"
           aria-label="Close expanded agent"
@@ -100,22 +99,8 @@ export function AgentExpander({ state, plans, host, onClose, onDone, onRun, onRe
       </div>
       <div className="exContent">
         <section className="exTasks">
-          <ProgressTracker
-            key={done}
-            readOnly
-            title={`Tasks · ${steps.length} steps`}
-            steps={steps.map((s) => ({
-              id: s.id,
-              label: s.label,
-              done: s.status === "done",
-              icon:
-                s.status === "waiting" ? (
-                  <span className="exWaiting">Needs you</span>
-                ) : s.status === "running" ? (
-                  <ThinkingLoader variant="plain" size="sm" phases={["Running"]} />
-                ) : undefined,
-            }))}
-          />
+          {/* Trying the richer step-timeline component here in place of ProgressTracker - read-only for now */}
+          <AgentPlan key={done} readOnly goal={agent.desc || agent.name} steps={steps} onChange={() => {}} />
         </section>
         <section className="exMeta">
           <h3>Right now</h3>
@@ -133,7 +118,7 @@ export function AgentExpander({ state, plans, host, onClose, onDone, onRun, onRe
             </p>
           ) : (
             <>
-              <ThinkingLoader variant="plain" phases={[agent.step]} />
+              <ThinkingLoader variant="plain" size="sm" phases={[agent.step]} />
               <p>The run is progressing autonomously.</p>
             </>
           )}

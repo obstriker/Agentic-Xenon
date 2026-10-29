@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { Button } from "../ui/button";
 
 /*
  * Approval Card – an agent asks before it acts, in a single self-contained file.
@@ -97,10 +98,10 @@ export function ApprovalCard({ agent, question, details, risk, preview, actions,
 
             <div className="xn-ap__actions">
               {actions.map((a) => (
-                <button key={a.id} type="button" className="xn-ap__btn" data-tone={a.tone} onClick={() => onResolve(a)}>
+                <Button key={a.id} className="xn-ap__btn" size="lg" variant={a.tone === "approve" ? "primary" : "destructive"} onClick={() => onResolve(a)}>
                   {a.label}
                   {a.shortcut && <kbd aria-hidden="true">{a.shortcut.toUpperCase()}</kbd>}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -177,21 +178,8 @@ const css = /* css */ `
 .xn-ap__row dd { margin: 0; font-weight: 600; text-align: right; }
 
 .xn-ap__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
-.xn-ap__btn {
-  flex: 1 1 150px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-  min-height: 56px; padding: 0 18px; border: 0; border-radius: 13px; cursor: pointer;
-  font: inherit; font-size: 17px; font-weight: 650; color: var(--xn-ap-ink);
-  background: #26364a; box-shadow: inset 0 0 0 1px rgba(158, 203, 255, 0.16);
-  transition: background-color 160ms ease, transform 160ms ease;
-}
-.xn-ap__btn:hover { background: #2f4259; }
-.xn-ap__btn:active { transform: scale(0.98); }
-.xn-ap__btn:focus-visible { outline: 3px solid #89bdff; outline-offset: 2px; }
-.xn-ap__btn[data-tone="approve"] { background: linear-gradient(#f4f4f5, #dfe3e8); color: #121c2a; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 1px 0 #fff; }
-.xn-ap__btn[data-tone="approve"]:hover { background: linear-gradient(#fff, #e9edf1); }
-.xn-ap__btn[data-tone="deny"] { color: var(--xn-ap-bad); }
+.xn-ap__btn { flex: 1 1 150px; }
 .xn-ap__btn kbd { font: inherit; font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: rgba(0, 0, 0, 0.18); color: inherit; opacity: 0.7; }
-.xn-ap__btn[data-tone="approve"] kbd { background: rgba(0, 0, 0, 0.1); }
 
 .xn-ap__done { display: none; align-items: center; gap: 12px; padding: 18px 24px; font-size: 18px; }
 .xn-ap[data-resolved] .xn-ap__done { display: flex; animation: xn-ap-in 420ms var(--xn-ap-ease) 200ms both; }

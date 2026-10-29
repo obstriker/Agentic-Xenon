@@ -40,6 +40,12 @@ export function useResource<T>(load: (api: Api) => Promise<T>, matches: (e: Chan
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => void refetch(), [refetch, ...deps]);
   useEffect(() => api.subscribe((e) => latest.current.matches(e) && void refetch()), [api, refetch]);
+  // Change events are the fast path; this is the safety net for a missed or dropped SSE connection
+  // (e.g. the server restarted, or the tab was backgrounded) so the view can't go stale forever.
+  useEffect(() => {
+    const t = setInterval(() => void refetch(), 10_000);
+    return () => clearInterval(t);
+  }, [refetch]);
   return { ...state, refetch };
 }
 

@@ -1,74 +1,126 @@
-import { useEffect, useState } from "react";
-import { graphLinks, graphTools, usd } from "../../data";
-import type { Agent } from "../../../shared/contract";
+import { useMemo, useState } from "react";
+import { usd } from "../../data";
+import type { Agent, HumanRequest } from "../../../shared/contract";
 import { useBackend } from "../../api/backend";
+import { CliIcon } from "../../CliIcon";
 import { StatusPill } from "../../StatusPill";
 import { Button } from "../../ui/button";
-import { GridBackground } from "../../ui/grid-background";
 import { NumberTicker } from "../../ui/number-ticker";
 import { ToolCallCard, ToolCallGroup } from "../../ui/tool-call-card";
-import { AgentGraph } from "../../ui-xenon/agent-graph";
-import type { PlanStep } from "../../ui-xenon/agent-plan";
+import { AgentFlow, type FlowAgent, type FlowStep, type FlowStepStatus } from "../../ui-xenon/agent-flow";
+import { DecisionTree } from "../../ui-xenon/decision-tree";
+import type { PlanStatus, PlanStep } from "../../ui-xenon/agent-plan";
+import { decisionTrees } from "../needs-trees";
 import { costOf, progressOf } from "./plan";
 
-const HUB = "hub";
+type TreeRequest = Extract<HumanRequest, { type: "tree" }>;
 
 type Props = {
   agent: Agent;
   plans: Record<string, PlanStep[]>;
-  /** An agent node was tapped */
+  /** An agent was picked in the switcher */
   onChoose: (index: number) => void;
   onOpenPlan: () => void;
   onNeeds: () => void;
 };
 
+const STEP_STATUS: Record<PlanStatus, FlowStepStatus> = { done: "done", running: "active", waiting: "waiting", failed: "failed", queued: "pending" } as Record<PlanStatus, FlowStepStatus>;
+
+/**
+ * The agent's decision flow: where it is, which steps it has been through, what it is on now and what is still to come.
+ * Agents that report no plan show the one thing they are doing, so there is always a place to read their status.
+ */
 export function FlowTab({ agent, plans, onChoose, onOpenPlan, onNeeds }: Props) {
-  const { agents } = useBackend();
-  // The selected node: the chosen agent, the coordinator, or a tool
-  const [sel, setSel] = useState(agent.name);
-  useEffect(() => setSel(agent.name), [agent.name]);
+  const { agents, requests, answer, steering } = useBackend();
+  const run = steering.runs[agent.name];
 
-  const waiting = agents.filter((a) => a.status === "waiting").length;
-  const working = agents.filter((a) => a.status === "working").length;
-  const tool = graphTools.find((t) => t.id === sel);
+  // A decision this agent is waiting on: its options show on the waiting step, and "Respond" opens them to answer
+  const ask = useMemo(() => requests.find((r): r is TreeRequest => r.type === "tree" && r.agent === agent.name && !r.answer), [requests, agent.name]);
+  const tree = ask ? (decisionTrees.find((t) => t.id === ask.tree.id) ?? ask.tree) : undefined;
+  const [open, setOpen] = useState(false);
 
-  const select = (id: string) => {
-    setSel(id);
-    const index = agents.findIndex((a) => a.name === id);
-    if (index >= 0) onChoose(index);
+  const plan = plans[agent.name] ?? [];
+  const steps = useMemo<FlowStep[]>(() => {
+    if (plan.length > 0) {
+      return plan.map((s) => ({
+        id: s.id,
+        title: s.label,
+        status: STEP_STATUS[s.status] ?? "pending",
+        detail: s.detail,
+        tool: s.tool,
+        duration: s.duration,
+        startedAt: s.startedAt,
+        error: s.error,
+        ask: s.status === "waiting" ? agent.step : undefined,
+        notes: s.notes?.map((n) => ({ id: n.id, text: n.text, picked: n.picked })),
+      }));
+    }
+    const status: FlowStepStatus = agent.status === "done" ? "done" : agent.status === "waiting" ? "waiting" : "active";
+    return [{ id: "now", title: agent.step || agent.desc, status, startedAt: status === "active" ? run?.startedAt : undefined, ask: status === "waiting" ? agent.step : undefined }];
+  }, [plan, agent.step, agent.desc, agent.status, run?.startedAt]);
+
+  const current = steps.find((s) => s.status === "active" || s.status === "waiting" || s.status === "failed");
+  const flowAgent: FlowAgent = {
+    name: agent.name,
+    model: agent.model,
+    task: current?.title ?? agent.step ?? agent.desc,
+    details: agent.desc && agent.desc !== (current?.title ?? agent.step) ? agent.desc : undefined,
+    status: run?.status === "paused" ? "paused" : agent.status,
+    progress: progressOf(agent, plan),
+    cost: costOf(agent, plan),
   };
 
   return (
     <div className="twoPane">
-      <GridBackground className="panel graphPanel" size={44} speed={8} fade={85} reveal={false}>
-        <div className="graphLabel">LIVE NETWORK · EVERY PULSE IS A TOOL CALL</div>
-        <span className="liveBadge">
-          ● {working} working · {agents.length - working - waiting} idle · {waiting} need you
-        </span>
-        <AgentGraph
-          hub="Jarvis"
-          agents={agents.map((a) => ({ id: a.name, label: a.name, state: a.status === "waiting" ? "waiting" : "working" }))}
-          tools={graphTools}
-          links={graphLinks}
-          selected={sel}
-          onSelect={select}
+      <div className="panel flowPanel">
+        <AgentFlow
+          agent={flowAgent}
+          steps={steps}
+          title="Decision flow"
+          icon={agent.kind ? <CliIcon kind={agent.kind} state={agent.status === "waiting" ? "waiting" : agent.status === "working" ? "working" : "done"} size={26} /> : undefined}
+          decision={tree ? { question: tree.question, options: tree.options.filter((o) => !o.other).map((o) => ({ id: o.id, label: o.label, agentPick: o.agentPick })) } : undefined}
+          onRespond={() => (ask ? setOpen(true) : onNeeds())}
+          formatCost={(n) => new Intl.NumberFormat("en-US", usd).format(n)}
+          headerRight={
+            <div className="flowSwitch" role="group" aria-label="Agent">
+              {agents.map((a, i) => (
+                <button key={a.id} ref={(el) => { if (el && a.id === agent.id) el.scrollIntoView?.({ inline: "nearest", block: "nearest" }); }} type="button" className="flowChip" data-state={a.status} aria-pressed={a.id === agent.id} onClick={() => onChoose(i)} title={a.name}>
+                  <i aria-hidden="true" />
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          }
         />
-      </GridBackground>
+        {open && tree && ask && (
+          <div className="flowDecision" role="dialog" aria-label="Decision">
+            <button type="button" className="flowDecisionClose" aria-label="Hide the decision" onClick={() => setOpen(false)}>
+              ×
+            </button>
+            <DecisionTree
+              compact
+              decisions={[tree]}
+              onResolve={(a) => {
+                const reply = a.choice ? `${a.option.label} → ${a.choice.title}` : a.option.label;
+                // let the tree show "Approved · running" before the answer goes in and the panel closes
+                setTimeout(() => {
+                  answer(ask.id, reply);
+                  setOpen(false);
+                }, 1100);
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       <aside className="panel inspector" aria-live="polite">
-        {sel === HUB ? (
-          <HubInspector waiting={waiting} plans={plans} onNeeds={onNeeds} />
-        ) : tool ? (
-          <ToolInspector id={tool.id} label={tool.label} onSelectAgent={select} />
-        ) : (
-          <AgentInspector key={agent.name} agent={agent} steps={plans[agent.name]} onOpenPlan={onOpenPlan} onNeeds={onNeeds} />
-        )}
+        <AgentInspector key={agent.name} agent={agent} steps={plan} onOpenPlan={onOpenPlan} onRespond={ask ? () => setOpen(true) : onNeeds} />
       </aside>
     </div>
   );
 }
 
-function AgentInspector({ agent, steps, onOpenPlan, onNeeds }: { agent: Agent; steps: PlanStep[]; onOpenPlan: () => void; onNeeds: () => void }) {
+function AgentInspector({ agent, steps, onOpenPlan, onRespond }: { agent: Agent; steps: PlanStep[]; onOpenPlan: () => void; onRespond: () => void }) {
   const waiting = agent.status === "waiting";
   const calls = steps.filter((s) => s.status !== "queued");
   const done = steps.filter((s) => s.status === "done").length;
@@ -126,76 +178,11 @@ function AgentInspector({ agent, steps, onOpenPlan, onNeeds }: { agent: Agent; s
           {waiting ? "Open plan" : "Open plan & steer"}
         </Button>
         {waiting && (
-          <Button size="lg" onClick={onNeeds} iconRight={<span aria-hidden="true">↗</span>}>
+          <Button size="lg" onClick={onRespond} iconRight={<span aria-hidden="true">↗</span>}>
             Respond
           </Button>
         )}
       </div>
-    </>
-  );
-}
-
-function ToolInspector({ id, label, onSelectAgent }: { id: string; label: string; onSelectAgent: (name: string) => void }) {
-  const callers = graphLinks.filter((l) => l.tool === id).sort((a, b) => b.load - a.load);
-
-  return (
-    <div className="inspectorBody">
-      <div className="eyebrow">TOOL</div>
-      <h2>{label}</h2>
-      <p>
-        Called by {callers.length} {callers.length === 1 ? "agent" : "agents"}. Thicker links in the network are busier ones.
-      </p>
-      <div className="callers">
-        {callers.map((c) => (
-          <button key={c.agent} type="button" className="caller" onClick={() => onSelectAgent(c.agent)}>
-            <span className="callerName">{c.agent}</span>
-            <span className="callerBar" aria-hidden="true">
-              <i style={{ width: `${Math.round(c.load * 100)}%` }} />
-            </span>
-            <span className="callerLoad">{Math.round(c.load * 100)}%</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HubInspector({ waiting, plans, onNeeds }: { waiting: number; plans: Record<string, PlanStep[]>; onNeeds: () => void }) {
-  const { agents } = useBackend();
-  const spend = agents.reduce((sum, a) => sum + costOf(a, plans[a.name]), 0);
-
-  return (
-    <>
-      <div className="inspectorBody">
-        <div className="eyebrow">COORDINATOR</div>
-        <h2>Jarvis</h2>
-        <p>Plans the missions and hands work to the agents around it.</p>
-        <div className="metric">
-          <span>Agents</span>
-          <b>{agents.length}</b>
-        </div>
-        <div className="metric">
-          <span>Working</span>
-          <b>{agents.length - waiting}</b>
-        </div>
-        <div className="metric">
-          <span>Need you</span>
-          <b>{waiting}</b>
-        </div>
-        <div className="metric">
-          <span>Spend, all agents</span>
-          <b>
-            <NumberTicker value={spend} format={usd} />
-          </b>
-        </div>
-      </div>
-      {waiting > 0 && (
-        <div className="inspectorActions">
-          <Button size="lg" onClick={onNeeds} iconRight={<span aria-hidden="true">↗</span>}>
-            Human decisions
-          </Button>
-        </div>
-      )}
     </>
   );
 }

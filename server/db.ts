@@ -36,7 +36,14 @@ export function openDb(file = process.env.DB_FILE ?? "server/xenon.db"): Db {
   const db = new DatabaseSync(file);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
+  if (!(db.prepare("PRAGMA table_info(agents)").all() as { name: string }[]).some((c) => c.name === "kind")) {
+    db.exec("ALTER TABLE agents ADD COLUMN kind TEXT");
+  }
   if (!db.prepare("SELECT 1 FROM agents LIMIT 1").get()) seed(db);
+  // Older simulator databases predate CLI marks. Fill only missing metadata, preserving run state.
+  const demo = JSON.parse(readFileSync(new URL("./seed.json", import.meta.url), "utf8"));
+  const setKind = db.prepare("UPDATE agents SET kind=? WHERE id=? AND kind IS NULL");
+  for (const a of demo.agents) if (a.kind) setKind.run(a.kind, slug(a.name));
   return db;
 }
 
@@ -47,8 +54,8 @@ function seed(db: Db) {
   db.exec("BEGIN");
   s.agents.forEach((a: any, i: number) => {
     const id = slug(a.name);
-    db.prepare("INSERT INTO agents VALUES (?,?,?,?,?,?,?,?,?,?,?,?)").run(
-      id, a.name, a.desc, a.step, a.cost, a.progress, a.status, s.models[a.name] ?? "", JSON.stringify(a.tasks), JSON.stringify(a.findings), JSON.stringify(s.limits[a.name]), i,
+    db.prepare("INSERT INTO agents (id,name,desc,step,cost,progress,status,model,tasks,findings,limits,pos,kind) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
+      id, a.name, a.desc, a.step, a.cost, a.progress, a.status, s.models[a.name] ?? "", JSON.stringify(a.tasks), JSON.stringify(a.findings), JSON.stringify(s.limits[a.name]), i, a.kind ?? null,
     );
     // The plan an agent starts with: finished steps, the one running (or waiting on a person), then the queue
     const done = Math.floor(a.progress / 25);
@@ -75,7 +82,7 @@ const opt = <T>(v: T | null): T | undefined => (v === null ? undefined : v);
 export const getAgents = (db: Db): Agent[] =>
   (db.prepare("SELECT * FROM agents ORDER BY pos").all() as any[]).map((r) => ({
     id: r.id, name: r.name, desc: r.desc, step: r.step, cost: r.cost, progress: r.progress, status: r.status, model: r.model,
-    tasks: JSON.parse(r.tasks), findings: JSON.parse(r.findings), limits: JSON.parse(r.limits),
+    kind: opt(r.kind), tasks: JSON.parse(r.tasks), findings: JSON.parse(r.findings), limits: JSON.parse(r.limits),
   }));
 
 export const getPlan = (db: Db, agentId: string): PlanStep[] => {

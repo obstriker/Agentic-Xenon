@@ -58,7 +58,23 @@ The API (`server/app.ts`) talks to a `Runtime` (`server/runtime.ts`). Two exist.
 | Findings tab | `agent read` of the terminal (`GET /api/agents/:id/output`) |
 | Raw keys | `POST /api/agents/:id/keys` |
 
-Not available with herdr: plan steps, spend, progress, context and call limits, and the change ledger (herdr has none). Quotas are still sample data. Every agent in the session can be controlled, including ones in other projects.
+Not available with herdr: spend, context and call limits, and the change ledger (herdr has none). Plans come from Claude task files or terminal checklists when available. Every agent in the session can be controlled, including ones in other projects.
+
+## Subscription usage
+
+`server/subscriptions.ts` supplies `/api/quotas` independently of the agent runtime, including when agents are simulated. The monitor never uses the seeded quota rows. It checks Claude, Codex and Gemini once a minute, retains successful readings as explicitly stale after failures, and shows unavailable accounts without fabricated percentages. Secrets remain on the server.
+
+- Claude: the signed-in Claude Code account's OAuth usage endpoint and locally reported subscription type. `CLAUDE_CONFIG_DIR` selects the account directory. `CLAUDE_USAGE_CACHE_FILE` optionally selects a fresh statusline usage export.
+- Codex: read-only `account/read` and `account/rateLimits/read` through a short-lived `codex app-server` process. All returned limit buckets and their actual window durations are preserved. `CODEX_BIN` selects the executable; Windows also discovers the desktop app's bundled CLI.
+- Gemini: the signed-in Gemini CLI account's `loadCodeAssist` and `retrieveUserQuota` responses. Model quotas describe Code Assist usage, not the entire Gemini consumer app. Availability depends on account eligibility. `GEMINI_CONFIG_DIR` selects the credentials directory; expired credentials require refreshing the CLI sign-in. `GOOGLE_CLOUD_PROJECT` or `GOOGLE_CLOUD_PROJECT_ID` can specify a Code Assist project. `GEMINI_USAGE_CACHE_FILE` can instead select a JSON export containing `buckets` and `paidTier`/`currentTier`; its file timestamp determines freshness.
+
+On Windows, if a local Claude/Gemini credential is missing or expired and no explicit config directory was supplied, the default WSL user's config is also checked. No login or credential rewrite is performed.
+
+Provider errors and missing fields are not treated as zero usage. Reset times come from provider timestamps and are formatted in the browser. The collector tests run with `node --experimental-strip-types --test server/subscriptions.test.ts`.
+
+The monitor reuses `UsageMeter` with independent colour-coded windows inside each provider card. Session and weekly percentages retain their own bars, reset times and matching sparkline traces; they are never summed. Graphs share a 0–100% scale, show a point for the first real sample, and grow on subsequent polls. Small provider reset-timestamp drift does not clear history; an actual window rollover does.
+
+Recent successful readings and graph samples persist in `~/.cache/xenon/subscription-usage.json` (`XENON_USAGE_CACHE_FILE` overrides the location). After a restart, cached data is explicitly stale until refreshed. Rate-limited providers respect `Retry-After`, with a five-minute fallback, independently of the other subscriptions.
 
 **sim (`server/sim.ts`)** is the old simulated run engine on SQLite, for working on the UI without herdr.
 

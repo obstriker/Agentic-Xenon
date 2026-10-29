@@ -1,3 +1,4 @@
+import { Button } from "../ui/button";
 import { createContext, useContext, useMemo, useRef, type ReactNode } from "react";
 import type { Agent, HumanRequest, LedgerChange, PlanStep, Quota } from "../../shared/contract";
 import type { Run, Steering } from "../views/live/useSteering";
@@ -99,7 +100,7 @@ export function BackendProvider({ children }: { children: ReactNode }) {
           {error && (
             <>
               <p style={{ opacity: 0.7 }}>Start it with <code>npm run api</code>, then try again.</p>
-              <button onClick={() => all.forEach((r) => void r.refetch())}>Try again</button>
+              <Button size="lg" onClick={() => all.forEach((r) => void r.refetch())}>Try again</Button>
             </>
           )}
         </div>

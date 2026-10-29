@@ -7,7 +7,7 @@ import { StatusPill } from "../StatusPill";
 import { Button } from "../ui/button";
 import { GridBackground } from "../ui/grid-background";
 import { NumberTicker } from "../ui/number-ticker";
-import { ThinkingLoader } from "../ui/thinking-loader";
+import { ThinkingLoader } from "../ui-xenon/thinking-loader";
 import type { PlanStep } from "../ui-xenon/agent-plan";
 import { costOf, doneSteps, progressOf, statusOf } from "./live/plan";
 
@@ -57,7 +57,7 @@ export function Command({ active, pending, plans, onOpenAgent, onNeeds }: Props)
                   ) : status === "done" ? (
                     <span className="stepDone">{steps.length ? "All steps finished" : "Idle"}</span>
                   ) : (
-                    <ThinkingLoader variant="plain" phases={[a.step]} />
+                    <ThinkingLoader variant="plain" size="sm" phases={[a.step]} />
                   )}
                   {steps.length > 0 && (
                     <span>
@@ -88,7 +88,7 @@ export function Command({ active, pending, plans, onOpenAgent, onNeeds }: Props)
           <div className="topline">
             <span className="label">JARVIS · COORDINATOR</span>
             {mode === 0 && <span className="orbStatus">● AVAILABLE</span>}
-            {mode === 1 && <ThinkingLoader key="listen" size="sm" phases={["Listening"]} />}
+            {mode === 1 && <ThinkingLoader key="listen" variant="plain" size="sm" phases={["Listening"]} />}
             {mode === 2 && <ThinkingLoader key="brief" size="sm" phases={["Checking agents", "Reading quotas", "Writing briefing"]} interval={1500} />}
           </div>
           <Orb mode={mode} onActivate={cycle} />

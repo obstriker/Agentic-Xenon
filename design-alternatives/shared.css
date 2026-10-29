@@ -1,0 +1,30 @@
+/* Xenon tokens, lifted from src/styles.css */
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f4f6fb;background:#080d14}
+*{box-sizing:border-box}html,body{height:100%;margin:0}button{font:inherit;border:0;cursor:pointer;color:inherit}
+button:focus-visible{outline:3px solid #89bdff;outline-offset:2px}
+html,body{overflow:hidden;background:#05080d}
+#shell{width:1920px;height:540px;display:flex;background:#0b1018;overflow:hidden;transform-origin:0 0;user-select:none;-webkit-tap-highlight-color:transparent}
+.rail{width:74px;flex:none;background:#090d13;border-right:1px solid #293443;display:flex;flex-direction:column;align-items:center;padding:12px 8px;gap:8px}
+.logo{font-size:24px;font-weight:800;letter-spacing:-3px;margin-bottom:4px;color:#daebfc}
+.nav{width:56px;height:56px;border-radius:14px;background:transparent;color:#9eafc4;display:grid;place-items:center;position:relative}
+.nav svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav.active,.nav:hover{background:#243247;color:#fff}
+.nav .num{position:absolute;top:0;right:-3px;font-size:12px;font-weight:800;background:#f2bb79;color:#131c27;min-width:19px;padding:2px 4px;border-radius:9px}
+.main{flex:1;min-width:0;height:540px;padding:14px 18px;display:flex;gap:16px;overflow:hidden}
+h1{font-size:26px;letter-spacing:-.04em;margin:0;font-weight:700}h1 small{font-size:16px;color:#9bb0c7;font-weight:400}
+.status{font-size:13px;border-radius:7px;padding:7px 9px;background:#254039;color:#9be7c7;font-weight:750;white-space:nowrap}
+.status.waiting{color:#f5d39a;background:#453626}.status.done{color:#cad9ef;background:#2a384a}
+.btn{height:56px;padding:0 22px;border-radius:12px;background:#1d2938;border:1px solid rgba(158,203,255,.16);font-weight:600;font-size:16px;white-space:nowrap}
+.btn:hover{background:#243247}.btn.sm{height:48px;padding:0 14px;font-size:15px}.btn:active,.nav:active,.tile:active,.tr:active{transform:scale(.97);background:#2c3d56}
+.btn.primary{background:#9ecbff;color:#0e1620;border-color:#9ecbff}
+.track{height:6px;background:#314258;border-radius:9px;overflow:hidden}.track div{height:100%;border-radius:9px;background:#9fc8fa}
+.track.wait div{background:#f5d39a}
+.card{border:1px solid #354257;background:linear-gradient(150deg,#1a2635,#121b28);border-radius:17px;padding:20px 21px}
+.panel{background:#131e2b;border:1px solid #304158;border-radius:16px}
+.jarvis{border:1px solid #2a3950;border-radius:20px;background:radial-gradient(ellipse at 50% 50%,#152339,#0e1725 57%,#0d1420 85%);background-image:linear-gradient(rgba(158,203,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(158,203,255,.07) 1px,transparent 1px),radial-gradient(ellipse at 50% 50%,#152339,#0e1725 57%,#0d1420 85%);background-size:36px 36px,36px 36px,auto}
+.label{font-size:15px;color:#b3c6db;letter-spacing:.08em;font-weight:700}
+.eyebrow{color:#9aafc5;font-size:14px;letter-spacing:.09em;font-weight:750;text-transform:uppercase}
+.muted{color:#aabace}.wait{color:#f5d39a}.ok{color:#9be7c7}
+.orb{border-radius:50%;background:radial-gradient(circle at 38% 34%,#d9ecff,#7fb4ee 28%,#2d5f9e 62%,#0e2038);box-shadow:0 0 60px #4a8fe055,inset 0 0 40px #0a182c;animation:breathe 4s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.04);box-shadow:0 0 90px #4a8fe077,inset 0 0 40px #0a182c}}
+.tag{position:fixed;left:14px;bottom:8px;font-size:12px;color:#6f849c;letter-spacing:.06em}

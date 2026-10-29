@@ -1,8 +1,9 @@
 import { execFile } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { basename } from "node:path";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { basename, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { Agent, AgentStatus, HumanRequest, Quota, Run, SteerNote } from "../shared/contract.ts";
+import type { Agent, AgentStatus, HumanRequest, PlanStep, Run, SteerNote } from "../shared/contract.ts";
 import { HttpError } from "./http-error.ts";
 import type { Emit, Runtime } from "./runtime.ts";
 
@@ -13,6 +14,7 @@ type HerdrAgent = {
   cwd: string;
   pane_id: string;
   state_change_seq: number;
+  agent_session?: { kind: string; value: string };
   terminal_title?: string;
   terminal_title_stripped?: string;
 };
@@ -43,6 +45,8 @@ type Ask = { id: string; pane: string; seq: number; details: string; open: boole
  * this keeps only what herdr cannot: notes queued for later, which agents are held, and answers given.
  *
  *   agent list      -> Agent + Run      (polled every second; changes become change events)
+ *   Claude tasks    -> plan steps       (~/.claude/tasks/<session id>/*.json, written by TaskCreate/TaskUpdate)
+ *   any other CLI   -> plan steps       (checklist lines in its recent pane text; see readTextPlan)
  *   status blocked  -> a human request  (Approve = Enter, Deny = Esc)
  *   queue a note    -> sent with `agent prompt` as soon as the agent is idle and not held
  *   interrupt       -> Esc, then `agent prompt`
@@ -53,10 +57,83 @@ export function createHerdr(emit: Emit, dbFile = process.env.HERDR_DB_FILE ?? "s
   db.exec(`
     CREATE TABLE IF NOT EXISTS notes (id TEXT PRIMARY KEY, pane TEXT NOT NULL, text TEXT NOT NULL, seq INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS answers (request_id TEXT PRIMARY KEY, pane TEXT NOT NULL, value TEXT NOT NULL, at INTEGER NOT NULL);`);
-  const quotas = JSON.parse(readFileSync(new URL("./seed.json", import.meta.url), "utf8")).quotas as Quota[];
-
   let raw = new Map<string, HerdrAgent>();
   let agents: Agent[] = [];
+  let plans = new Map<string, PlanStep[]>();
+  const tasksRoot = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"), "tasks");
+
+  /** Claude's task list (richest source: ids, detail, timing) from ~/.claude/tasks/<session id>/*.json */
+  const readClaudeTasks = (h: HerdrAgent): PlanStep[] => {
+    const session = h.agent_session?.value;
+    if (h.agent !== "claude" || !session || !/^[\w-]+$/.test(session)) return [];
+    const dir = join(tasksRoot, session);
+    try {
+      return readdirSync(dir)
+        .filter((f) => /^\d+\.json$/.test(f))
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .flatMap((f): PlanStep[] => {
+          try {
+            const t = JSON.parse(readFileSync(join(dir, f), "utf8")) as { id: string; subject: string; description?: string; status: string; activeForm?: string };
+            const status = t.status === "completed" ? "done" : t.status === "in_progress" ? "running" : "queued";
+            const detail = t.description && t.description !== t.subject ? t.description : undefined;
+            return [{ id: `${h.pane_id}:${t.id}`, label: t.subject, status, detail, ...(status === "running" ? { startedAt: statSync(join(dir, f)).mtimeMs } : {}) }];
+          } catch {
+            return []; // half-written file: the next poll reads it whole
+          }
+        });
+    } catch {
+      return []; // no task list yet
+    }
+  };
+
+  /**
+   * A checklist line any CLI might render: "- [ ] label", "[x] label", "1. ☐ label", "☑ label", "✔ label".
+   * Deliberately narrow to glyphs that only mean "checkbox" - generic bullets like "●" or "□" are how
+   * Claude and others prefix ordinary response lines, and matching those turns prose into fake plan steps.
+   */
+  const CHECKLIST_LINE = /^\s*(?:[●○]\s+)?(?:[-*]\s*)?(?:\d+[.)]\s*)?(\[[ xX✓✔✗✘]\]|[☐☑✔✓✗✘])\s+(.+?)\s*$/;
+  const CHECKLIST_DONE = new Set(["[x]", "[X]", "[✓]", "[✔]", "☑", "✔", "✓"]);
+  const CHECKLIST_FAILED = new Set(["[✗]", "[✘]", "✗", "✘"]);
+
+  /**
+   * Generic fallback for CLIs with no native task API: reads the agent's recent terminal text and parses
+   * the most recent checklist block it rendered. Coarser than readClaudeTasks (no ids, detail, or a
+   * running/in_progress state — only done/failed/queued, since that's all a checkbox glyph tells us).
+   */
+  const readTextPlan = async (h: HerdrAgent): Promise<PlanStep[]> => {
+    let text: string;
+    try {
+      text = await herdr(["agent", "read", h.pane_id, "--source", "recent-unwrapped", "--lines", "80"]);
+    } catch {
+      return []; // not readable right now (blocked mid-startup, etc.) - try again next poll
+    }
+    const lines = text.split("\n");
+    const steps: { label: string; status: PlanStep["status"] }[] = [];
+    let sawBlock = false;
+    let blankRun = 0;
+    // Walk up from the bottom and keep only the last contiguous checklist block, tolerating one blank line in it
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const m = CHECKLIST_LINE.exec(lines[i]);
+      if (m) {
+        const status: PlanStep["status"] = CHECKLIST_DONE.has(m[1]) ? "done" : CHECKLIST_FAILED.has(m[1]) ? "failed" : "queued";
+        steps.unshift({ label: m[2], status });
+        sawBlock = true;
+        blankRun = 0;
+      } else if (sawBlock) {
+        if (lines[i].trim() === "" && blankRun++ < 1) continue;
+        break;
+      }
+    }
+    return steps.map((s, i) => ({ id: `${h.pane_id}:text:${i}`, label: s.label, status: s.status }));
+  };
+
+  /**
+   * Claude gets its structured task file only - never the text scraper. Claude's own UI (questions, bullet
+   * summaries, code examples that mention checkboxes) uses the same glyphs as a real checklist, so scraping
+   * its prose is a false-positive machine with no corresponding upside: TaskCreate/TaskUpdate already gives
+   * us everything real. Every other CLI has no structured source at all, so the heuristic is the best we have.
+   */
+  const readPlan = (h: HerdrAgent): Promise<PlanStep[]> => (h.agent === "claude" ? Promise.resolve(readClaudeTasks(h)) : readTextPlan(h));
   const since = new Map<string, { status: string; at: number; first: number }>();
   const held = new Set<string>();
   const sending = new Set<string>();
@@ -72,18 +149,20 @@ export function createHerdr(emit: Emit, dbFile = process.env.HERDR_DB_FILE ?? "s
       seen.set(label(h), nth);
       const title = h.terminal_title_stripped || h.terminal_title || label(h);
       const status = STATUS[h.agent_status] ?? "working";
+      const steps = plans.get(h.pane_id) ?? [];
+      const finished = steps.filter((s) => s.status === "done").length;
       return {
         id: h.pane_id,
         name: nth > 1 ? `${label(h)} ${nth}` : label(h),
         desc: title,
-        step: title,
-        // Herdr doesn't report spend or progress; these stay at their neutral values
+        step: steps.find((s) => s.status === "running")?.label ?? title,
+        // Herdr doesn't report spend; progress comes from the task list when there is one
         cost: 0,
-        progress: status === "done" ? 100 : 0,
+        progress: steps.length ? Math.round((finished / steps.length) * 100) : status === "done" ? 100 : 0,
         status,
         model: h.agent,
         kind: h.agent,
-        tasks: [],
+        tasks: steps.map((s) => s.label),
         findings: [],
       };
     });
@@ -98,6 +177,9 @@ export function createHerdr(emit: Emit, dbFile = process.env.HERDR_DB_FILE ?? "s
     const prev = new Map(agents.map((a) => [a.id, JSON.stringify(a)]));
     const prevRaw = raw;
     raw = new Map(list.map((h) => [h.pane_id, h]));
+    const prevPlans = plans;
+    plans = new Map(await Promise.all(list.map(async (h): Promise<[string, PlanStep[]]> => [h.pane_id, await readPlan(h)])));
+    for (const [id, steps] of plans) if (JSON.stringify(steps) !== JSON.stringify(prevPlans.get(id) ?? [])) emit({ topic: "plan", agentId: id });
     agents = toAgents(list);
 
     let roster = agents.length !== prev.size;
@@ -216,9 +298,9 @@ export function createHerdr(emit: Emit, dbFile = process.env.HERDR_DB_FILE ?? "s
     name: "herdr",
     agents: () => agents,
     hasAgent: (id) => raw.has(id),
-    plan: () => [],
+    plan: (id) => plans.get(id) ?? [],
     updatePlan: () => {
-      throw new HttpError(409, "Herdr agents don't have editable plans");
+      throw new HttpError(409, "Tasks belong to the agent. Ask it to change them with a note.");
     },
     steering: () => ({ runs: agents.map(runOf), queues: Object.fromEntries(agents.map((a) => [a.id, noteRows(a.id)])) }),
     async steer(id, { text, mode, queuedId }) {
@@ -271,7 +353,7 @@ export function createHerdr(emit: Emit, dbFile = process.env.HERDR_DB_FILE ?? "s
       db.prepare("DELETE FROM answers WHERE request_id=?").run(requestId);
       emit({ topic: "requests" });
     },
-    quotas: () => quotas,
+    quotas: () => [],
     async output(id, lines) {
       need(id);
       return (await herdr(["agent", "read", id, "--source", "recent-unwrapped", "--lines", String(lines)])).trimEnd();

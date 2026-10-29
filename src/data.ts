@@ -6,6 +6,7 @@ export type AgentStatus = "working" | "waiting" | "done";
 
 export type Agent = {
   name: string;
+  kind: string;
   desc: string;
   step: string;
   cost: number;
@@ -24,6 +25,7 @@ export const STATUS_LABEL: Record<AgentStatus, string> = {
 export const agents: Agent[] = [
   {
     name: "Market landscape",
+    kind: "claude",
     desc: "Mapping competitors and emerging product shifts",
     step: "Cross-checking pricing models",
     cost: 3.84,
@@ -38,6 +40,7 @@ export const agents: Agent[] = [
   },
   {
     name: "Protocol research",
+    kind: "codex",
     desc: "Evaluating implementation patterns and security assumptions",
     step: "Testing protocol assumptions",
     cost: 2.17,
@@ -48,6 +51,7 @@ export const agents: Agent[] = [
   },
   {
     name: "Dataset synthesis",
+    kind: "gemini",
     desc: "Comparing public datasets and source reliability",
     step: "Waiting for dataset permission",
     cost: 1.62,
@@ -58,6 +62,7 @@ export const agents: Agent[] = [
   },
   {
     name: "Literature review",
+    kind: "claude",
     desc: "Extracting evidence across academic and industry publications",
     step: "Grouping evidence clusters",
     cost: 5.31,
@@ -68,6 +73,7 @@ export const agents: Agent[] = [
   },
   {
     name: "Risk assessment",
+    kind: "claude",
     desc: "Identifying unresolved assumptions and potential failure modes",
     step: "Waiting for risk tolerance",
     cost: 0.98,
@@ -78,6 +84,7 @@ export const agents: Agent[] = [
   },
   {
     name: "Executive briefing",
+    kind: "claude",
     desc: "Turning research findings into a decision-ready summary",
     step: "Drafting key takeaways",
     cost: 1.48,
