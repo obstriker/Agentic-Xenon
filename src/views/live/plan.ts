@@ -2,6 +2,9 @@ import type { Agent, AgentStatus } from "../../../shared/contract";
 import type { PlanStep } from "../../ui-xenon/agent-plan";
 import type { Run } from "./useSteering";
 
+/** Preview only: scales step time so a short demo shows tasks finishing (1 = real pace) */
+export const demo = { speed: 1 };
+
 export const doneSteps = (steps: PlanStep[]) => steps.filter((s) => s.status === "done").length;
 
 export const isFinished = (steps: PlanStep[]) => steps.length > 0 && steps.every((s) => s.status === "done");

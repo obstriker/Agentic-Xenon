@@ -10,3 +10,11 @@ Every app design or UI change goes through the design review partner (`design-re
 - Review each changed view, not just the main page.
 - Fix what the reviewer flags, then take a new screenshot and review again.
 - Report the reviewer's findings and the final screenshot path in the handoff.
+
+## Commands
+
+```bash
+npm run dev       # vite dev server (polling file watch, needed on WSL + /mnt/c)
+npm run build     # tsc --noEmit && vite build
+npx vite build -c vite.hosted.config.ts   # single-file hosted build of alternatives.html -> dist-hosted/
+```
